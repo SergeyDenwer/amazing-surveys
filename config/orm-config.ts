@@ -6,7 +6,9 @@ import { ConfigService } from '@nestjs/config';
 export class OrmConfig implements TypeOrmOptionsFactory {
   constructor(private readonly configService: ConfigService) {}
   createTypeOrmOptions(): TypeOrmModuleOptions {
-    const { type, host, port, username, password, database } = this.configService.get('database');
+    const { type, host, port, username, password, database, synchronize, ssl_required } = this.configService.get('database');
+
+    console.log('Database SSL Required:', ssl_required);
 
     return {
       type,
@@ -16,8 +18,14 @@ export class OrmConfig implements TypeOrmOptionsFactory {
       password,
       database,
       entities: ["dist/**/*.entity{.ts,.js}"],
-      synchronize: true,
+      synchronize: synchronize,
       logging: true,
+      ssl: ssl_required,
+      extra: ssl_required ? {
+        ssl: {
+          rejectUnauthorized: false
+        }
+      } : {}
     };
   }
 }
