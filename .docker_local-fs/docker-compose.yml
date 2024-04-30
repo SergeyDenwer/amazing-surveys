@@ -1,0 +1,33 @@
+networks:
+  app:
+
+services:
+  #server:
+  #  image: node
+  #  ports:
+  #    - "3000:3000"
+  #  depends_on:
+  #    - postgres
+  #  networks:
+  #    - app
+    #command: sh -c "npm install && npx lerna run server:build && npx lerna run server:start"
+  #  command: sh -c "npm run start:dev"
+  #  working_dir: /app
+  #  volumes:
+  #    - ../:/app
+    #restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    ports:
+      - "5405:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      PGDATA: /var/lib/postgresql/data/fs
+    networks:
+      - app
+    volumes:
+      - ../../../database/:/var/lib/postgresql/data
+    restart: unless-stopped

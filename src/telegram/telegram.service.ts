@@ -1,0 +1,105 @@
+// src/telegram/telegram.service.ts
+import {
+  Update,
+  Ctx,
+  Start,
+  Help,
+  On,
+} from 'nestjs-telegraf';
+import { Context } from 'telegraf';
+import { UsersService } from "../users/users.service";
+import { QuestionsService } from "../surveys/questions.service";
+import { Injectable } from "@nestjs/common";
+import { AnswerOptions } from "../constants/answer-options.enum";
+import { CreateUserDto } from "../users/dto/create-user.dto";
+import { ResponsesService } from "../surveys/responses.service";
+import { CreateResponseDto } from "../surveys/dto/create-response.dto";
+
+@Update()
+@Injectable()
+export class TelegramService {
+  constructor(
+    private usersService: UsersService,
+    private questionsService: QuestionsService,
+    private responsesService: ResponsesService,
+  ) {}
+
+  @Start()
+  async start(@Ctx() ctx: Context) {
+    const question = await this.questionsService.getLatestQuestion();
+    if (question) {
+      await ctx.reply(question.question, {
+        reply_markup: {
+          keyboard: [
+            [{ text: AnswerOptions.Option1 }],
+            [{ text: AnswerOptions.Option2 }],
+            [{ text: AnswerOptions.Option3 }],
+            [{ text: AnswerOptions.Option4 }],
+            [{ text: AnswerOptions.Option5 }],
+          ],
+          one_time_keyboard: true,
+        },
+      });
+    } else {
+      await ctx.reply('Извините, вопросы закончились.');
+    }
+  }
+
+  @Help()
+  async help(@Ctx() ctx: Context) {
+    await ctx.reply('Это бот еженедельных опросов настроений на самые пиздецовые темы. Ответив на вопрос, вы сможете увидеть результаты прошлой недели. Нажмите /start чтобы начать');
+  }
+
+  @On('message')
+  async on(@Ctx() ctx: Context) {
+    const { text } = ctx;
+    const telegram_id = ctx.from.id;
+    const is_bot = ctx.from.is_bot;
+    const language_code = ctx.from.language_code;
+
+    let user = await this.usersService.findByTelegramID(telegram_id);
+    if (!user) {
+      const createUserDto: CreateUserDto = {
+        telegram_id,
+        is_bot,
+        language_code
+      };
+      user = await this.usersService.create(createUserDto);
+    }
+
+    const answerOptionKey = getAnswerOptionKey(text);
+    if (answerOptionKey) {
+      const latestQuestion = await this.questionsService.getLatestQuestion();
+      if (latestQuestion) {
+
+        const alreadyResponded = await this.responsesService.hasUserAlreadyResponded(user.id, latestQuestion.id);
+        if (alreadyResponded) {
+          ctx.reply("Вы уже отвечали на этот вопрос. В понедельник будет результат и новый опрос");
+          return;
+        }
+
+        const createResponseDto: CreateResponseDto = {
+          user_id: user.id,
+          question_id: latestQuestion.id,
+          choice: answerOptionKey
+        };
+        await this.responsesService.create(createResponseDto);
+        const path = require('path');
+        let imagePath = path.join(__dirname, '..', '..', '..', 'images', 'test_pic.jpeg');
+        ctx.replyWithPhoto({ source: imagePath }, { caption: 'Спасибо за ваш ответ. Результаты этого опроса будут опубликованны в понедельник. Сейчас вы можете видеть результаты прошлого опроса.' });
+      }
+    } else {
+      ctx.reply('Что то сломалось');
+    }
+  }
+}
+
+function getAnswerOptionKey(text: string): string | null {
+  const entries = Object.entries(AnswerOptions);
+  for (const [key, value] of entries) {
+    if (value === text) {
+      return key;
+    }
+  }
+  return null;
+}
