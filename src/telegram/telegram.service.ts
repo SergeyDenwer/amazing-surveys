@@ -102,7 +102,8 @@ export class TelegramService {
   }
 
   //@Cron('0 */6 * * *') // Запускается каждые 6 часов
-  @Cron('*/5 * * * *')
+  //@Cron('*/5 * * * *')
+  //@Cron('0 11 * * 1')
   async handleCron() {
     //this.logger.debug('Started sending notifications');
     const users = await this.usersService.findAll();
