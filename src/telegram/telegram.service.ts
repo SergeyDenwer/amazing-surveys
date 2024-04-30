@@ -6,7 +6,7 @@ import {
   Help,
   On,
 } from 'nestjs-telegraf';
-import { Context } from 'telegraf';
+import { Context, Telegraf } from 'telegraf';
 import { UsersService } from "../users/users.service";
 import { QuestionsService } from "../surveys/questions.service";
 import { Injectable } from "@nestjs/common";
@@ -15,6 +15,7 @@ import { CreateUserDto } from "../users/dto/create-user.dto";
 import { UpdateUserDto } from "../users/dto/update-user.dto";
 import { ResponsesService } from "../surveys/responses.service";
 import { CreateResponseDto } from "../surveys/dto/create-response.dto";
+import { Cron } from "@nestjs/schedule";
 
 @Update()
 @Injectable()
@@ -93,14 +94,30 @@ export class TelegramService {
           choice: answerOptionKey
         };
         await this.responsesService.create(createResponseDto);
-        const path = require('path');
-        let imagePath = path.join(__dirname, '..', '..', '..', 'images', 'test_pic.jpeg');
-        ctx.replyWithPhoto({ source: imagePath }, { caption: 'Спасибо за ваш ответ. Результаты этого опроса будут опубликованны в понедельник. Сейчас вы можете видеть результаты прошлого опроса.' });
+        ctx.replyWithPhoto({ source: getImage('test_pic.jpeg') }, { caption: 'Спасибо за ваш ответ. Результаты этого опроса будут опубликованны в понедельник. Сейчас вы можете видеть результаты прошлого опроса.' });
       }
     } else {
       ctx.reply('Что то сломалось');
     }
   }
+
+  //@Cron('0 */6 * * *') // Запускается каждые 6 часов
+  @Cron('*/5 * * * *')
+  async handleCron() {
+    //this.logger.debug('Started sending notifications');
+    const users = await this.usersService.findAll();
+    const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+    const message = 'Привет дурачок!'
+
+    for (const user of users) {
+      await bot.telegram.sendMessage(user.chat_id, message);
+    }
+  }
+}
+
+function getImage(name: string){
+  const path = require('path');
+  return path.join(__dirname, '..', '..', '..', 'images', name);
 }
 
 function getAnswerOptionKey(text: string): string | null {

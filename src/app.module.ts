@@ -11,6 +11,7 @@ import { Response } from './surveys/entities/response.entity';
 import {UsersModule} from "./users/users.module";
 import {QuestionsModule} from "./surveys/questions.module";
 import {ResponsesService} from "./surveys/responses.service";
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import {ResponsesService} from "./surveys/responses.service";
     TelegrafModule.forRoot({
       token: process.env.TELEGRAM_BOT_TOKEN
     }),
+    ScheduleModule.forRoot(),
     UsersModule,
     QuestionsModule
   ],
