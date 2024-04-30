@@ -8,8 +8,6 @@ export class OrmConfig implements TypeOrmOptionsFactory {
   createTypeOrmOptions(): TypeOrmModuleOptions {
     const { type, host, port, username, password, database, synchronize, ssl_required } = this.configService.get('database');
 
-    console.log('Database SSL Required:', ssl_required);
-
     return {
       type,
       host,
