@@ -29,8 +29,9 @@ export class UsersService {
     return this.userRepository.findOne({ where: { telegram_id } });
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async update(user: User, updateUserDto: UpdateUserDto): Promise<User> {
+    const updatedUser = Object.assign(user, updateUserDto);
+    return this.userRepository.save(updatedUser);
   }
 
   remove(id: number) {

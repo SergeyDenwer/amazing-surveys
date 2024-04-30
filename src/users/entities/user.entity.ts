@@ -8,6 +8,9 @@ export class User {
   @Column({ type: 'bigint' })
   telegram_id: number;
 
+  @Column({ type: 'bigint' })
+  chat_id: number;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

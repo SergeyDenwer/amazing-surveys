@@ -12,6 +12,7 @@ import { QuestionsService } from "../surveys/questions.service";
 import { Injectable } from "@nestjs/common";
 import { AnswerOptions } from "../constants/answer-options.enum";
 import { CreateUserDto } from "../users/dto/create-user.dto";
+import { UpdateUserDto } from "../users/dto/update-user.dto";
 import { ResponsesService } from "../surveys/responses.service";
 import { CreateResponseDto } from "../surveys/dto/create-response.dto";
 
@@ -54,6 +55,7 @@ export class TelegramService {
   async on(@Ctx() ctx: Context) {
     const { text } = ctx;
     const telegram_id = ctx.from.id;
+    const chat_id = ctx.chat.id;
     const is_bot = ctx.from.is_bot;
     const language_code = ctx.from.language_code;
 
@@ -61,10 +63,17 @@ export class TelegramService {
     if (!user) {
       const createUserDto: CreateUserDto = {
         telegram_id,
+        chat_id,
         is_bot,
         language_code
       };
       user = await this.usersService.create(createUserDto);
+    } else {
+      const updateUserDto: UpdateUserDto = {
+        chat_id
+      };
+
+      await this.usersService.update(user, updateUserDto);
     }
 
     const answerOptionKey = getAnswerOptionKey(text);
