@@ -3,7 +3,8 @@ import {
   Ctx,
   Start,
   Help,
-  On, Command,
+  On,
+  Command,
 } from 'nestjs-telegraf';
 import { Context, Telegraf } from 'telegraf';
 import { UsersService } from "../users/users.service";
@@ -33,6 +34,16 @@ export class TelegramService {
 
   @Start()
   async start(@Ctx() ctx: Context) {
+    await ctx.reply(messages.startMessage);
+  }
+
+  @Help()
+  async help(@Ctx() ctx: Context) {
+    await ctx.reply(messages.helpResponse);
+  }
+
+  @Command('go')
+  async getQuestion(@Ctx() ctx: Context) {
     const question = await this.questionsService.getLatestQuestion();
     if (question) {
       await ctx.reply(question.question, {
@@ -52,17 +63,11 @@ export class TelegramService {
     }
   }
 
-  @Help()
-  async help(@Ctx() ctx: Context) {
-    await ctx.reply(messages.helpResponse);
-  }
-
   @Command('feedback')
   async requestFeedback(@Ctx() ctx: Context) {
     const chat_id = ctx.chat.id;
-    // Установка состояния для пользователя
     this.sessions[chat_id] = { state: 'AWAITING_FEEDBACK' };
-    await ctx.reply('Please leave your feedback.');
+    await ctx.reply(messages.feedbackTitle);
   }
 
   @On('text')
@@ -75,7 +80,6 @@ export class TelegramService {
     const is_bot = ctx.from.is_bot;
     const language_code = ctx.from.language_code;
 
-    // Поиск существующего пользователя или создание нового
     let user = await this.usersService.findByTelegramID(telegram_id);
     if (!user) {
       const createUserDto: CreateUserDto = {
@@ -86,17 +90,15 @@ export class TelegramService {
       };
       user = await this.usersService.create(createUserDto);
     } else {
-      // Обновление информации о пользователе, если это необходимо
       const updateUserDto: UpdateUserDto = {
         chat_id
       };
       await this.usersService.update(user, updateUserDto);
     }
 
-    // Обработка состояния обратной связи
     if (session && session.state === 'AWAITING_FEEDBACK') {
       if (!text) {
-        await ctx.reply('Please enter some feedback.');
+        await ctx.reply(messages.notExistFeedback);
         return;
       }
 
@@ -105,12 +107,11 @@ export class TelegramService {
       createFeedbackDto.text = text;
 
       await this.feedbackService.create(createFeedbackDto);
-      await ctx.reply('Thank you for your feedback!');
+      await ctx.reply(messages.feedbackResponse);
       this.sessions[chat_id] = { state: null };
       return;
     }
 
-    // Обработка ответов на вопросы
     const answerOptionKey = getAnswerOptionKey(text);
     if (answerOptionKey) {
       const latestQuestion = await this.questionsService.getLatestQuestion();

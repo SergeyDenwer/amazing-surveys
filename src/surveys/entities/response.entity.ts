@@ -17,9 +17,9 @@ export class Response {
   question: Question;
 
   @Column({
-    type: 'varchar',   // Тип изменён для сохранения строкового ключа
-    nullable: true,    // Позволяет полю быть null
-    default: null      // Значение по умолчанию установлено как null
+    type: 'varchar',
+    nullable: true,
+    default: null
   })
-  choice: string;     // Тип поля изменен на string
+  choice: string;
 }
