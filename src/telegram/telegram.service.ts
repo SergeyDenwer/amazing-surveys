@@ -128,7 +128,7 @@ export class TelegramService {
         createResponseDto.choice = answerOptionKey;
 
         await this.responsesService.create(createResponseDto);
-        await ctx.replyWithPhoto({ source: getImage('test_pic.jpeg') }, { caption: messages.thanksResponse });
+        await ctx.replyWithPhoto({ source: getImage('last_result.png') }, { caption: messages.thanksResponse });
       }
     }
   }
