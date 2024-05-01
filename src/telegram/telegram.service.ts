@@ -45,6 +45,11 @@ export class TelegramService {
     }
     this.sessions[chat_id] = { ...this.sessions[chat_id], hasStarted: true };
     await ctx.reply(messages.startMessage);
+    setTimeout(() => {
+      if (this.sessions[chat_id]) {
+        this.sessions[chat_id].hasStarted = false;
+      }
+    }, 1000);
   }
 
   @Help()
