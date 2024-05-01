@@ -12,6 +12,7 @@ import {UsersModule} from "./users/users.module";
 import {QuestionsModule} from "./surveys/questions.module";
 import {ResponsesService} from "./surveys/responses.service";
 import { ScheduleModule } from '@nestjs/schedule';
+import {FeedbackModule} from "./feedback/feedback.module";
 
 @Module({
   imports: [
@@ -28,7 +29,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     }),
     ScheduleModule.forRoot(),
     UsersModule,
-    QuestionsModule
+    QuestionsModule,
+    FeedbackModule
   ],
   controllers: [AppController],
   providers: [AppService, TelegramService, ResponsesService],

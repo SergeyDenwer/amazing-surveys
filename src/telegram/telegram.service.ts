@@ -3,7 +3,7 @@ import {
   Ctx,
   Start,
   Help,
-  On,
+  On, Command,
 } from 'nestjs-telegraf';
 import { Context, Telegraf } from 'telegraf';
 import { UsersService } from "../users/users.service";
@@ -16,14 +16,19 @@ import { ResponsesService } from "../surveys/responses.service";
 import { CreateResponseDto } from "../surveys/dto/create-response.dto";
 import { Cron } from "@nestjs/schedule";
 import { messages } from "../messages";
+import { CreateFeedbackDto } from "../feedback/dto/create-feedback.dto";
+import { FeedbackService } from "../feedback/feedback.service";
 
 @Update()
 @Injectable()
 export class TelegramService {
+
+  private sessions: Record<number, { state: 'AWAITING_FEEDBACK' | null }> = {};
   constructor(
     private usersService: UsersService,
     private questionsService: QuestionsService,
     private responsesService: ResponsesService,
+    private feedbackService: FeedbackService,
   ) {}
 
   @Start()
@@ -52,14 +57,25 @@ export class TelegramService {
     await ctx.reply(messages.helpResponse);
   }
 
-  @On('message')
-  async on(@Ctx() ctx: Context) {
-    const { text } = ctx;
-    const telegram_id = ctx.from.id;
+  @Command('feedback')
+  async requestFeedback(@Ctx() ctx: Context) {
     const chat_id = ctx.chat.id;
+    // Установка состояния для пользователя
+    this.sessions[chat_id] = { state: 'AWAITING_FEEDBACK' };
+    await ctx.reply('Please leave your feedback.');
+  }
+
+  @On('text')
+  async handleText(@Ctx() ctx: Context) {
+    const chat_id = ctx.chat.id;
+    const { text } = ctx;
+    const session = this.sessions[chat_id];
+
+    const telegram_id = ctx.from.id;
     const is_bot = ctx.from.is_bot;
     const language_code = ctx.from.language_code;
 
+    // Поиск существующего пользователя или создание нового
     let user = await this.usersService.findByTelegramID(telegram_id);
     if (!user) {
       const createUserDto: CreateUserDto = {
@@ -70,37 +86,51 @@ export class TelegramService {
       };
       user = await this.usersService.create(createUserDto);
     } else {
+      // Обновление информации о пользователе, если это необходимо
       const updateUserDto: UpdateUserDto = {
         chat_id
       };
-
       await this.usersService.update(user, updateUserDto);
     }
 
+    // Обработка состояния обратной связи
+    if (session && session.state === 'AWAITING_FEEDBACK') {
+      if (!text) {
+        await ctx.reply('Please enter some feedback.');
+        return;
+      }
+
+      const createFeedbackDto = new CreateFeedbackDto();
+      createFeedbackDto.user_id = user.id;
+      createFeedbackDto.text = text;
+
+      await this.feedbackService.create(createFeedbackDto);
+      await ctx.reply('Thank you for your feedback!');
+      this.sessions[chat_id] = { state: null };
+      return;
+    }
+
+    // Обработка ответов на вопросы
     const answerOptionKey = getAnswerOptionKey(text);
     if (answerOptionKey) {
       const latestQuestion = await this.questionsService.getLatestQuestion();
       if (latestQuestion) {
-
         const alreadyResponded = await this.responsesService.hasUserAlreadyResponded(user.id, latestQuestion.id);
         if (alreadyResponded) {
-          ctx.reply(messages.alreadyResponded);
+          await ctx.reply(messages.alreadyResponded);
           return;
         }
 
-        const createResponseDto: CreateResponseDto = {
-          user_id: user.id,
-          question_id: latestQuestion.id,
-          choice: answerOptionKey
-        };
+        const createResponseDto = new CreateResponseDto();
+        createResponseDto.user_id = user.id;
+        createResponseDto.question_id = latestQuestion.id;
+        createResponseDto.choice = answerOptionKey;
+
         await this.responsesService.create(createResponseDto);
-        ctx.replyWithPhoto({ source: getImage('test_pic.jpeg') }, { caption: messages.thanksResponse });
+        await ctx.replyWithPhoto({ source: getImage('test_pic.jpeg') }, { caption: messages.thanksResponse });
       }
-    } else {
-      ctx.reply(messages.errorResponse);
     }
   }
-
   //@Cron('0 */6 * * *')
   //@Cron('*/5 * * * *')
   //@Cron('0 11 * * 1')
