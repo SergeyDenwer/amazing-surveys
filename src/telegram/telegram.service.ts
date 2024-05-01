@@ -20,11 +20,16 @@ import { messages } from "../messages";
 import { CreateFeedbackDto } from "../feedback/dto/create-feedback.dto";
 import { FeedbackService } from "../feedback/feedback.service";
 
+interface SessionData {
+  state: 'AWAITING_FEEDBACK' | null;
+  hasStarted?: boolean;
+}
+
 @Update()
 @Injectable()
 export class TelegramService {
 
-  private sessions: Record<number, { state: 'AWAITING_FEEDBACK' | null }> = {};
+  private sessions: Record<number, SessionData> = {};
   constructor(
     private usersService: UsersService,
     private questionsService: QuestionsService,
