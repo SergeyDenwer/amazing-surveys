@@ -1,4 +1,3 @@
-// src/telegram/telegram.service.ts
 import {
   Update,
   Ctx,
@@ -101,14 +100,14 @@ export class TelegramService {
     }
   }
 
-  //@Cron('0 */6 * * *') // Запускается каждые 6 часов
+  //@Cron('0 */6 * * *')
   //@Cron('*/5 * * * *')
   //@Cron('0 11 * * 1')
   async handleCron() {
     //this.logger.debug('Started sending notifications');
     const users = await this.usersService.findAll();
     const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-    const message = 'Привет дурачок!'
+    const message = ''
 
     for (const user of users) {
       await bot.telegram.sendMessage(user.chat_id, message);
