@@ -34,6 +34,11 @@ export class TelegramService {
 
   @Start()
   async start(@Ctx() ctx: Context) {
+    const chat_id = ctx.chat.id;
+    if (this.sessions[chat_id] && this.sessions[chat_id].hasStarted) {
+      return;
+    }
+    this.sessions[chat_id] = { ...this.sessions[chat_id], hasStarted: true };
     await ctx.reply(messages.startMessage);
   }
 
