@@ -15,6 +15,7 @@ import { UpdateUserDto } from "../users/dto/update-user.dto";
 import { ResponsesService } from "../surveys/responses.service";
 import { CreateResponseDto } from "../surveys/dto/create-response.dto";
 import { Cron } from "@nestjs/schedule";
+import { messages } from "../messages";
 
 @Update()
 @Injectable()
@@ -42,13 +43,13 @@ export class TelegramService {
         },
       });
     } else {
-      await ctx.reply('Извините, вопросы закончились.');
+      await ctx.reply(messages.notExistQuestion);
     }
   }
 
   @Help()
   async help(@Ctx() ctx: Context) {
-    await ctx.reply('Это бот еженедельных опросов настроений на самые пиздецовые темы. Ответив на вопрос, вы сможете увидеть результаты прошлой недели. Нажмите /start чтобы начать');
+    await ctx.reply(messages.helpResponse);
   }
 
   @On('message')
@@ -83,7 +84,7 @@ export class TelegramService {
 
         const alreadyResponded = await this.responsesService.hasUserAlreadyResponded(user.id, latestQuestion.id);
         if (alreadyResponded) {
-          ctx.reply("Вы уже отвечали на этот вопрос. В понедельник будет результат и новый опрос");
+          ctx.reply(messages.alreadyResponded);
           return;
         }
 
@@ -93,10 +94,10 @@ export class TelegramService {
           choice: answerOptionKey
         };
         await this.responsesService.create(createResponseDto);
-        ctx.replyWithPhoto({ source: getImage('test_pic.jpeg') }, { caption: 'Спасибо за ваш ответ. Результаты этого опроса будут опубликованны в понедельник. Сейчас вы можете видеть результаты прошлого опроса.' });
+        ctx.replyWithPhoto({ source: getImage('test_pic.jpeg') }, { caption: messages.thanksResponse });
       }
     } else {
-      ctx.reply('Что то сломалось');
+      ctx.reply(messages.errorResponse);
     }
   }
 
