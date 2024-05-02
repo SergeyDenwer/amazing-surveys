@@ -61,7 +61,7 @@ export class TelegramService {
   async getQuestion(@Ctx() ctx: Context) {
     const question = await this.questionsService.getLatestQuestion();
     if (question) {
-      await ctx.reply(question.question, {
+      await ctx.reply(question.question + '\n\n' + messages.question, {
         reply_markup: {
           keyboard: [
             [{ text: AnswerOptions.Option1 }],
