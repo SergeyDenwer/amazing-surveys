@@ -179,9 +179,9 @@ export class TelegramService {
       }
     }
   }
-  //@Cron('0 */6 * * *')
-  //@Cron('*/2 * * * *')
-  //@Cron('0 11 * * 1')
+
+  //@Cron('0 16 * * MON')
+  @Cron('30 15 * * MON')
   async handleCron() {
     const users = await this.usersService.findAll();
     const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
