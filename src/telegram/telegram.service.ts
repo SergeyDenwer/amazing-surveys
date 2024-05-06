@@ -19,6 +19,7 @@ import { Cron } from "@nestjs/schedule";
 import { messages } from "../messages";
 import { CreateFeedbackDto } from "../feedback/dto/create-feedback.dto";
 import { FeedbackService } from "../feedback/feedback.service";
+import path from "path";
 
 interface SessionData {
   state: 'AWAITING_FEEDBACK' | null;
@@ -37,12 +38,8 @@ export class TelegramService {
     private feedbackService: FeedbackService,
   ) {}
 
-  private async fetchLatestQuestion() {
-    return await this.questionsService.getLatestQuestion();
-  }
-
   private async sendQuestion(chat_id: number, bot?: Telegraf<Context>, ctx?: Context) {
-    const question = await this.fetchLatestQuestion();
+    const question = await this.questionsService.getLatestQuestion();
     if (!question) {
       const message = messages.notExistQuestion;
       if (ctx) {
@@ -72,6 +69,21 @@ export class TelegramService {
     } else if (bot) {
       await bot.telegram.sendMessage(chat_id, messages.additionalText + message, replyMarkup);
     }
+  }
+
+  private getImage(name: string){
+    const path = require('path');
+    return path.join(__dirname, '..', '..', '..', 'images', name);
+  }
+
+  private getAnswerOptionKey(text: string): string | null {
+    const entries = Object.entries(AnswerOptions);
+    for (const [key, value] of entries) {
+      if (value === text) {
+        return key;
+      }
+    }
+    return null;
   }
 
   @Start()
@@ -148,7 +160,7 @@ export class TelegramService {
       return;
     }
 
-    const answerOptionKey = getAnswerOptionKey(text);
+    const answerOptionKey = this.getAnswerOptionKey(text);
     if (answerOptionKey) {
       const latestQuestion = await this.questionsService.getLatestQuestion();
       if (latestQuestion) {
@@ -164,7 +176,7 @@ export class TelegramService {
         createResponseDto.choice = answerOptionKey;
 
         await this.responsesService.create(createResponseDto);
-        await ctx.replyWithPhoto({ source: getImage('last_result.png') }, { caption: messages.thanksResponse });
+        await ctx.replyWithPhoto({ source: this.getImage('last_result.png') }, { caption: messages.thanksResponse });
       }
     }
   }
@@ -178,19 +190,4 @@ export class TelegramService {
       await this.sendQuestion(user.chat_id, bot);
     }
   }
-}
-
-function getImage(name: string){
-  const path = require('path');
-  return path.join(__dirname, '..', '..', '..', 'images', name);
-}
-
-function getAnswerOptionKey(text: string): string | null {
-  const entries = Object.entries(AnswerOptions);
-  for (const [key, value] of entries) {
-    if (value === text) {
-      return key;
-    }
-  }
-  return null;
 }
