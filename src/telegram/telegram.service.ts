@@ -37,6 +37,43 @@ export class TelegramService {
     private feedbackService: FeedbackService,
   ) {}
 
+  private async fetchLatestQuestion() {
+    return await this.questionsService.getLatestQuestion();
+  }
+
+  private async sendQuestion(chat_id: number, bot?: Telegraf<Context>, ctx?: Context) {
+    const question = await this.fetchLatestQuestion();
+    if (!question) {
+      const message = messages.notExistQuestion;
+      if (ctx) {
+        await ctx.reply(message);
+      } else if (bot) {
+        await bot.telegram.sendMessage(chat_id, message);
+      }
+      return;
+    }
+
+    const message = question.question + '\n\n' + messages.question;
+    const replyMarkup = {
+      reply_markup: {
+        keyboard: [
+          [{ text: AnswerOptions.Option1 }],
+          [{ text: AnswerOptions.Option2 }],
+          [{ text: AnswerOptions.Option3 }],
+          [{ text: AnswerOptions.Option4 }],
+          [{ text: AnswerOptions.Option5 }],
+        ],
+        one_time_keyboard: true,
+      },
+    };
+
+    if (ctx) {
+      await ctx.reply(message, replyMarkup);
+    } else if (bot) {
+      await bot.telegram.sendMessage(chat_id, messages.additionalText + message, replyMarkup);
+    }
+  }
+
   @Start()
   async start(@Ctx() ctx: Context) {
     const chat_id = ctx.chat.id;
@@ -59,23 +96,7 @@ export class TelegramService {
 
   @Command('go')
   async getQuestion(@Ctx() ctx: Context) {
-    const question = await this.questionsService.getLatestQuestion();
-    if (question) {
-      await ctx.reply(question.question + '\n\n' + messages.question, {
-        reply_markup: {
-          keyboard: [
-            [{ text: AnswerOptions.Option1 }],
-            [{ text: AnswerOptions.Option2 }],
-            [{ text: AnswerOptions.Option3 }],
-            [{ text: AnswerOptions.Option4 }],
-            [{ text: AnswerOptions.Option5 }],
-          ],
-          one_time_keyboard: true,
-        },
-      });
-    } else {
-      await ctx.reply(messages.notExistQuestion);
-    }
+    await this.sendQuestion(ctx.chat.id, undefined, ctx);
   }
 
   @Command('feedback')
@@ -148,16 +169,13 @@ export class TelegramService {
     }
   }
   //@Cron('0 */6 * * *')
-  //@Cron('*/5 * * * *')
+  //@Cron('*/2 * * * *')
   //@Cron('0 11 * * 1')
   async handleCron() {
-    //this.logger.debug('Started sending notifications');
     const users = await this.usersService.findAll();
     const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-    const message = ''
-
     for (const user of users) {
-      await bot.telegram.sendMessage(user.chat_id, message);
+      await this.sendQuestion(user.chat_id, bot);
     }
   }
 }
