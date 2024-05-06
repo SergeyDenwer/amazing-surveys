@@ -19,7 +19,6 @@ import { Cron } from "@nestjs/schedule";
 import { messages } from "../messages";
 import { CreateFeedbackDto } from "../feedback/dto/create-feedback.dto";
 import { FeedbackService } from "../feedback/feedback.service";
-import path from "path";
 
 interface SessionData {
   state: 'AWAITING_FEEDBACK' | null;
