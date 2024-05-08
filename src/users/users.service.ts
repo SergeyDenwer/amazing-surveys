@@ -34,6 +34,32 @@ export class UsersService {
     return this.userRepository.save(updatedUser);
   }
 
+  async getOrCreateUser(createUserDto: CreateUserDto): Promise<User> {
+    let user = await this.findByTelegramID(createUserDto.telegram_id);
+
+    // Если пользователь не найден, создаем нового
+    if (!user) {
+      user = this.userRepository.create(createUserDto);
+      await this.userRepository.save(user);
+    }
+
+    return user;
+  }
+
+  async updateOrCreateUser(createUserDto: CreateUserDto, updateUserDto: UpdateUserDto): Promise<User> {
+    let user = await this.findByTelegramID(createUserDto.telegram_id);
+
+    // Если пользователь не найден, создаем нового
+    if (!user) {
+      user = this.userRepository.create(createUserDto);
+    } else {
+      // Обновляем данные существующего пользователя
+      user = Object.assign(user, updateUserDto);
+    }
+
+    return this.userRepository.save(user);
+  }
+
   remove(id: number) {
     return `This action removes a #${id} user`;
   }

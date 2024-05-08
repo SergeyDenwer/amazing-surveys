@@ -25,28 +25,14 @@ export class FeedbackSceneCreator {
   @On('text')
   async handleText(@Ctx() ctx: SceneContext) {
 
-    const chat_id = ctx.chat.id;
     const { text } = ctx;
-
-    const telegram_id = ctx.from.id;
-    const is_bot = ctx.from.is_bot;
-    const language_code = ctx.from.language_code;
-
-    let user = await this.usersService.findByTelegramID(telegram_id);
-    if (!user) {
-      const createUserDto: CreateUserDto = {
-        telegram_id,
-        chat_id,
-        is_bot,
-        language_code
-      };
-      user = await this.usersService.create(createUserDto);
-    } else {
-      const updateUserDto: UpdateUserDto = {
-        chat_id
-      };
-      await this.usersService.update(user, updateUserDto);
-    }
+    const createUserDto: CreateUserDto = {
+      telegram_id: ctx.from.id,
+      chat_id: ctx.chat.id,
+      is_bot: ctx.from.is_bot,
+      language_code: ctx.from.language_code
+    };
+    const user = await this.usersService.getOrCreateUser(createUserDto);
 
     if (!text) {
       await ctx.reply(messages.notExistFeedback);
