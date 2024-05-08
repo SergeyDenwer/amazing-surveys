@@ -4,9 +4,9 @@ import {
   Start,
   Help,
   On,
-  Command,
+  Command, InjectBot,
 } from 'nestjs-telegraf';
-import { Context, Telegraf } from 'telegraf';
+import {Context, Scenes, Telegraf} from 'telegraf';
 import { UsersService } from "../users/users.service";
 import { QuestionsService } from "../surveys/questions.service";
 import { Injectable } from "@nestjs/common";
@@ -17,8 +17,7 @@ import { ResponsesService } from "../surveys/responses.service";
 import { CreateResponseDto } from "../surveys/dto/create-response.dto";
 import { Cron } from "@nestjs/schedule";
 import { messages } from "../messages";
-import { CreateFeedbackDto } from "../feedback/dto/create-feedback.dto";
-import { FeedbackService } from "../feedback/feedback.service";
+import {SceneContext} from "telegraf/scenes";
 
 interface SessionData {
   state: 'AWAITING_FEEDBACK' | null;
@@ -31,10 +30,10 @@ export class TelegramService {
 
   private sessions: Record<number, SessionData> = {};
   constructor(
+    @InjectBot() private readonly bot: Telegraf<Context>,
     private usersService: UsersService,
     private questionsService: QuestionsService,
-    private responsesService: ResponsesService,
-    private feedbackService: FeedbackService,
+    private responsesService: ResponsesService
   ) {}
 
   private async sendQuestion(chat_id: number, bot?: Telegraf<Context>, ctx?: Context) {
@@ -111,17 +110,15 @@ export class TelegramService {
   }
 
   @Command('feedback')
-  async requestFeedback(@Ctx() ctx: Context) {
-    const chat_id = ctx.chat.id;
-    this.sessions[chat_id] = { state: 'AWAITING_FEEDBACK' };
-    await ctx.reply(messages.feedbackTitle);
+  async feedbackCommand(@Ctx() ctx: SceneContext) {
+    await ctx.scene.enter('feedbackScene')
+    return
   }
 
   @On('text')
   async handleText(@Ctx() ctx: Context) {
     const chat_id = ctx.chat.id;
     const { text } = ctx;
-    const session = this.sessions[chat_id];
 
     const telegram_id = ctx.from.id;
     const is_bot = ctx.from.is_bot;
@@ -141,22 +138,6 @@ export class TelegramService {
         chat_id
       };
       await this.usersService.update(user, updateUserDto);
-    }
-
-    if (session && session.state === 'AWAITING_FEEDBACK') {
-      if (!text) {
-        await ctx.reply(messages.notExistFeedback);
-        return;
-      }
-
-      const createFeedbackDto = new CreateFeedbackDto();
-      createFeedbackDto.user_id = user.id;
-      createFeedbackDto.text = text;
-
-      await this.feedbackService.create(createFeedbackDto);
-      await ctx.reply(messages.feedbackResponse);
-      this.sessions[chat_id] = { state: null };
-      return;
     }
 
     const answerOptionKey = this.getAnswerOptionKey(text);

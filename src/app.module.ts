@@ -13,9 +13,15 @@ import {QuestionsModule} from "./surveys/questions.module";
 import {ResponsesService} from "./surveys/responses.service";
 import { ScheduleModule } from '@nestjs/schedule';
 import {FeedbackModule} from "./feedback/feedback.module";
+import { FeedbackSceneCreator} from "./telegram/scenes/feedback.scene";
+import * as process from "node:process";
+import * as LocalSession from 'telegraf-session-local'
+
+const session = new LocalSession()
 
 @Module({
   imports: [
+    FeedbackModule,
     ConfigModule.forRoot({
       load: [app],
     }),
@@ -25,14 +31,14 @@ import {FeedbackModule} from "./feedback/feedback.module";
     }),
     TypeOrmModule.forFeature([Response]),
     TelegrafModule.forRoot({
+      middlewares: [session.middleware()],
       token: process.env.TELEGRAM_BOT_TOKEN
     }),
     ScheduleModule.forRoot(),
     UsersModule,
-    QuestionsModule,
-    FeedbackModule
+    QuestionsModule
   ],
   controllers: [AppController],
-  providers: [AppService, TelegramService, ResponsesService],
+  providers: [AppService, TelegramService, ResponsesService, FeedbackSceneCreator],
 })
 export class AppModule {}
