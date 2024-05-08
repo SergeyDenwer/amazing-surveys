@@ -1,11 +1,5 @@
 // telegram.service.ts
-import {
-  Update,
-  Ctx,
-  Start,
-  Help,
-  Command, InjectBot, On,
-} from 'nestjs-telegraf';
+import {Update, Ctx, Start, Help, Command, InjectBot, On} from 'nestjs-telegraf';
 import {Context, Telegraf} from 'telegraf';
 import { Injectable } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
