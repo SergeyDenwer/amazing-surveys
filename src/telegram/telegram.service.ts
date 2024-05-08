@@ -1,26 +1,21 @@
+// telegram.service.ts
 import {
   Update,
   Ctx,
   Start,
   Help,
-  On,
-  Command, InjectBot,
+  Command, InjectBot, On,
 } from 'nestjs-telegraf';
-import {Context, Scenes, Telegraf} from 'telegraf';
-import { UsersService } from "../users/users.service";
-import { QuestionsService } from "../surveys/questions.service";
+import {Context, Telegraf} from 'telegraf';
 import { Injectable } from "@nestjs/common";
-import { AnswerOptions } from "../constants/answer-options.enum";
-import { CreateUserDto } from "../users/dto/create-user.dto";
-import { UpdateUserDto } from "../users/dto/update-user.dto";
-import { ResponsesService } from "../surveys/responses.service";
-import { CreateResponseDto } from "../surveys/dto/create-response.dto";
 import { Cron } from "@nestjs/schedule";
 import { messages } from "../messages";
 import {SceneContext} from "telegraf/scenes";
+import {UsersService} from "../users/users.service";
+import {QuestionsService} from "../surveys/questions.service";
+import {AnswerOptions} from "../constants/answer-options.enum";
 
 interface SessionData {
-  state: 'AWAITING_FEEDBACK' | null;
   hasStarted?: boolean;
 }
 
@@ -31,20 +26,14 @@ export class TelegramService {
   private sessions: Record<number, SessionData> = {};
   constructor(
     @InjectBot() private readonly bot: Telegraf<Context>,
-    private usersService: UsersService,
+    private readonly usersService: UsersService,
     private questionsService: QuestionsService,
-    private responsesService: ResponsesService
   ) {}
 
-  private async sendQuestion(chat_id: number, bot?: Telegraf<Context>, ctx?: Context) {
+  async sendQuestion(chatId: number) {
     const question = await this.questionsService.getLatestQuestion();
     if (!question) {
-      const message = messages.notExistQuestion;
-      if (ctx) {
-        await ctx.reply(message);
-      } else if (bot) {
-        await bot.telegram.sendMessage(chat_id, message);
-      }
+      await this.bot.telegram.sendMessage(chatId, messages.notExistQuestion);
       return;
     }
 
@@ -62,26 +51,7 @@ export class TelegramService {
       },
     };
 
-    if (ctx) {
-      await ctx.reply(message, replyMarkup);
-    } else if (bot) {
-      await bot.telegram.sendMessage(chat_id, messages.additionalText + message, replyMarkup);
-    }
-  }
-
-  private getImage(name: string){
-    const path = require('path');
-    return path.join(__dirname, '..', '..', '..', 'images', name);
-  }
-
-  private getAnswerOptionKey(text: string): string | null {
-    const entries = Object.entries(AnswerOptions);
-    for (const [key, value] of entries) {
-      if (value === text) {
-        return key;
-      }
-    }
-    return null;
+    await this.bot.telegram.sendMessage(chatId, message, replyMarkup);
   }
 
   @Start()
@@ -105,8 +75,9 @@ export class TelegramService {
   }
 
   @Command('go')
-  async getQuestion(@Ctx() ctx: Context) {
-    await this.sendQuestion(ctx.chat.id, undefined, ctx);
+  async getQuestion(@Ctx() ctx: SceneContext) {
+    await ctx.scene.enter('goScene')
+    return
   }
 
   @Command('feedback')
@@ -114,60 +85,22 @@ export class TelegramService {
     await ctx.scene.enter('feedbackScene')
     return
   }
-
   @On('text')
-  async handleText(@Ctx() ctx: Context) {
-    const chat_id = ctx.chat.id;
+  async handleText(@Ctx() ctx: SceneContext) {
     const { text } = ctx;
-
-    const telegram_id = ctx.from.id;
-    const is_bot = ctx.from.is_bot;
-    const language_code = ctx.from.language_code;
-
-    let user = await this.usersService.findByTelegramID(telegram_id);
-    if (!user) {
-      const createUserDto: CreateUserDto = {
-        telegram_id,
-        chat_id,
-        is_bot,
-        language_code
-      };
-      user = await this.usersService.create(createUserDto);
-    } else {
-      const updateUserDto: UpdateUserDto = {
-        chat_id
-      };
-      await this.usersService.update(user, updateUserDto);
+    const isValidAnswer = Object.values(AnswerOptions).includes(text as AnswerOptions);
+    if(isValidAnswer) {
+      await ctx.scene.enter('goScene', {fromCron: true, message: text});
     }
-
-    const answerOptionKey = this.getAnswerOptionKey(text);
-    if (answerOptionKey) {
-      const latestQuestion = await this.questionsService.getLatestQuestion();
-      if (latestQuestion) {
-        const alreadyResponded = await this.responsesService.hasUserAlreadyResponded(user.id, latestQuestion.id);
-        if (alreadyResponded) {
-          await ctx.reply(messages.alreadyResponded);
-          return;
-        }
-
-        const createResponseDto = new CreateResponseDto();
-        createResponseDto.user_id = user.id;
-        createResponseDto.question_id = latestQuestion.id;
-        createResponseDto.choice = answerOptionKey;
-
-        await this.responsesService.create(createResponseDto);
-        await ctx.replyWithPhoto({ source: this.getImage('last_result.png') }, { caption: messages.thanksResponse });
-      }
-    }
+    return;
   }
 
-  //@Cron('0 16 * * MON')
-  @Cron('30 15 * * MON')
+  //@Cron('49 22 * * MON')
   async handleCron() {
     const users = await this.usersService.findAll();
-    const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
     for (const user of users) {
-      await this.sendQuestion(user.chat_id, bot);
+      const chatId = user.chat_id;
+      await this.sendQuestion(chatId);
     }
   }
 }

@@ -1,3 +1,4 @@
+// app.module.ts
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -14,8 +15,9 @@ import {ResponsesService} from "./surveys/responses.service";
 import { ScheduleModule } from '@nestjs/schedule';
 import {FeedbackModule} from "./feedback/feedback.module";
 import { FeedbackSceneCreator} from "./telegram/scenes/feedback.scene";
-import * as process from "node:process";
 import * as LocalSession from 'telegraf-session-local'
+import {GoSceneCreator} from "./telegram/scenes/go.scene";
+import {UsersService} from "./users/users.service";
 
 const session = new LocalSession()
 
@@ -39,6 +41,6 @@ const session = new LocalSession()
     QuestionsModule
   ],
   controllers: [AppController],
-  providers: [AppService, TelegramService, ResponsesService, FeedbackSceneCreator],
+  providers: [AppService, TelegramService, ResponsesService, FeedbackSceneCreator, GoSceneCreator, UsersService],
 })
 export class AppModule {}

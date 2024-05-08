@@ -17,8 +17,8 @@ export class FeedbackSceneCreator {
     private usersService: UsersService,
   ) {}
   @SceneEnter()
-  sceneEnter(@Ctx() ctx: SceneContext){
-    ctx.reply(messages.feedbackTitle)
+  async sceneEnter(@Ctx() ctx: SceneContext){
+    await ctx.reply(messages.feedbackTitle)
   }
 
 
