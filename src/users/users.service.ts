@@ -36,8 +36,6 @@ export class UsersService {
 
   async getOrCreateUser(createUserDto: CreateUserDto): Promise<User> {
     let user = await this.findByTelegramID(createUserDto.telegram_id);
-
-    // Если пользователь не найден, создаем нового
     if (!user) {
       user = this.userRepository.create(createUserDto);
       await this.userRepository.save(user);

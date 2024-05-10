@@ -4,7 +4,6 @@ import { messages } from "../../messages";
 import {SceneContext} from "telegraf/scenes";
 import {Ctx, On, Scene, SceneEnter} from "nestjs-telegraf";
 import {CreateUserDto} from "../../users/dto/create-user.dto";
-import {UpdateUserDto} from "../../users/dto/update-user.dto";
 import {UsersService} from "../../users/users.service";
 import {QuestionsService} from "../../surveys/questions.service";
 import {ResponsesService} from "../../surveys/responses.service";
