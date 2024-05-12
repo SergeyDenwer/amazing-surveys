@@ -24,10 +24,12 @@ export class TelegramService {
     private questionsService: QuestionsService,
   ) {}
 
-  async sendQuestion(chatId: number, cronMessage: string | null = null) {
+  async sendQuestion(chatId: number, cronMessage: string | null = null, ctx: SceneContext = null) {
     const question = await this.questionsService.getLatestQuestion();
     if (!question) {
       await this.bot.telegram.sendMessage(chatId, messages.notExistQuestion);
+      if(ctx)
+        await ctx.scene.leave();
       return;
     }
 

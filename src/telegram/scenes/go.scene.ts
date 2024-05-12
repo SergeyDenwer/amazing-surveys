@@ -10,7 +10,7 @@ import {ResponsesService} from "../../surveys/responses.service";
 import {AnswerOptions} from "../../constants/answer-options.enum";
 import {CreateResponseDto} from "../../surveys/dto/create-response.dto";
 import {TelegramService} from "../telegram.service";
-import {AdditionalQuestions, AdditionalQuestionsText} from "../../constants/additional-questions.enum";
+import {AdditionalQuestions} from "../../constants/additional-questions.enum";
 import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
 import {CreateAdditionalQuestionResponseDto} from "../../surveys/dto/create-additional-question-response.dto";
 import {BinaryOptions} from "../../constants/binary-options.enum";
@@ -83,7 +83,7 @@ export class GoSceneCreator {
       if (!recentResponse) {
         (ctx.scene.state as CustomSceneState).additionalQuestion = questionKey;
         const replyMarkup = await this.telegramService.getEnumKeyboard(additionalQuestionsConfig[questionKey].options);
-        await ctx.reply(messages.additionalQuestionDescription + AdditionalQuestionsText[questionKey], replyMarkup);
+        await ctx.reply(messages.additionalQuestionDescription + messages[questionKey], replyMarkup);
         return;
       }
     }
@@ -150,12 +150,13 @@ export class GoSceneCreator {
     } else {
       (ctx.scene.state as CustomSceneState).questionIndex = 0;
       const chatId = ctx.chat.id;
-      await this.telegramService.sendQuestion(chatId);
+      await this.telegramService.sendQuestion(chatId, null, ctx);
     }
   }
 
   @On('text')
   async handleText(@Ctx() ctx: SceneContext) {
+    await ctx.scene.leave(); return;
     const stage = (ctx.scene.state as CustomSceneState).questionIndex;
     if(stage === 0){
       await this.saveResponse(ctx)

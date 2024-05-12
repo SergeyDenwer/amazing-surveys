@@ -1,3 +1,5 @@
+import {AdditionalQuestions} from "./constants/additional-questions.enum";
+
 export const messages = {
   startMessage: `Добро пожаловать в ПИЗДЕЦОМЕТР – сервис еженедельных опросов, который помогает измерить эмоциональный фон общества в непростые времена.
   
@@ -42,7 +44,7 @@ export const messages = {
   question: 'Как эта новость повлияла на ваше эмоциональное состояние и привычный образ жизни?\n',
   cronMessage: 'Привет! Новая неделя. Новый опрос:' + '\n\n',
   additionalQuestionDescription: 'Ответьте пожалуйста на дополнительный вопрос. Это поможет нам сегментировать ответы.' + '\n\n',
-  areYouInRussia: 'Вы сейчас находитесь в России?',
-  ageQuestion: 'Сколько вам лет?',
+  [AdditionalQuestions.AreYouInRussia]: 'Вы сейчас находитесь в России?',
+  [AdditionalQuestions.HowOldAreYou]: 'Сколько вам лет?',
 
 };
