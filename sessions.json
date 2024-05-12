@@ -3,12 +3,7 @@
     {
       "id": "368397946:368397946",
       "data": {
-        "__scenes": {
-          "current": "goScene",
-          "state": {
-            "questionIndex": 0
-          }
-        }
+        "__scenes": {}
       }
     },
     {

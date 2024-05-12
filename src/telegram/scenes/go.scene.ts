@@ -61,7 +61,7 @@ export class GoSceneCreator {
         const response = await this.responsesService.create(createResponseDto);
         (ctx.scene.state as CustomSceneState).responseId = response.id;
 
-        await ctx.replyWithPhoto({ source: this.getImage('last_result.jpg') },
+        await ctx.replyWithPhoto({ source: this.getImage('last_result.png') },
           { caption: messages.thanksResponse + ' ' +  messages.thanksResponseDescription});
 
         (ctx.scene.state as CustomSceneState).questionIndex += 1;
@@ -156,7 +156,7 @@ export class GoSceneCreator {
 
   @On('text')
   async handleText(@Ctx() ctx: SceneContext) {
-    await ctx.scene.leave(); return;
+    //await ctx.scene.leave(); return;
     const stage = (ctx.scene.state as CustomSceneState).questionIndex;
     if(stage === 0){
       await this.saveResponse(ctx)
