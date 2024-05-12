@@ -10,12 +10,13 @@ import {ResponsesService} from "../../surveys/responses.service";
 import {AnswerOptions} from "../../constants/answer-options.enum";
 import {CreateResponseDto} from "../../surveys/dto/create-response.dto";
 import {TelegramService} from "../telegram.service";
-import {AdditionalQuestions} from "../../constants/additional-questions.enum";
+import {AdditionalQuestions, AdditionalQuestionsText} from "../../constants/additional-questions.enum";
 import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
 import {CreateAdditionalQuestionResponseDto} from "../../surveys/dto/create-additional-question-response.dto";
 import {BinaryOptions} from "../../constants/binary-options.enum";
 import {AgeOptions} from "../../constants/age-options.enum";
 import {User} from "../../users/entities/user.entity";
+import {additionalQuestionsConfig} from "../../../config/additional-questions-config";
 
 interface CustomSceneState {
   questionIndex?: number;
@@ -60,7 +61,7 @@ export class GoSceneCreator {
         const response = await this.responsesService.create(createResponseDto);
         (ctx.scene.state as CustomSceneState).responseId = response.id;
 
-        await ctx.replyWithPhoto({ source: this.getImage('last_result.png') },
+        await ctx.replyWithPhoto({ source: this.getImage('last_result.jpg') },
           { caption: messages.thanksResponse + ' ' +  messages.thanksResponseDescription});
 
         (ctx.scene.state as CustomSceneState).questionIndex += 1;
@@ -71,31 +72,23 @@ export class GoSceneCreator {
 
   private async additionalQuestion(@Ctx() ctx: SceneContext) {
     const user = (ctx.scene.state as CustomSceneState).user || await this.getOrCreateUser(ctx);
-    const recentRussiaResponse = await this.additionalQuestionResponseService.findRecent(
-      user.id,
-      AdditionalQuestions.AreYouInRussia,
-      4
-    );
 
-    if (!recentRussiaResponse) {
-      (ctx.scene.state as CustomSceneState).additionalQuestion = AdditionalQuestions.AreYouInRussia;
-      const replyMarkup = await this.telegramService.getEnumKeyboard(BinaryOptions);
-      await ctx.reply(messages.additionalQuestionDescription + messages.areYouInRussia, replyMarkup);
-    } else {
-      const recentAgeResponse = await this.additionalQuestionResponseService.findRecent(
+    for (const questionKey of Object.values(AdditionalQuestions)) {
+      const recentResponse = await this.additionalQuestionResponseService.findRecent(
         user.id,
-        AdditionalQuestions.HowOldAreYou,
-        52
+        questionKey,
+        additionalQuestionsConfig[questionKey].expiresIn
       );
 
-      if (!recentAgeResponse) {
-        (ctx.scene.state as CustomSceneState).additionalQuestion = AdditionalQuestions.HowOldAreYou;
-        const replyMarkup = await this.telegramService.getEnumKeyboard(AgeOptions);
-        await ctx.reply(messages.additionalQuestionDescription + messages.ageQuestion, replyMarkup);
-      } else {
-        await ctx.scene.leave();
+      if (!recentResponse) {
+        (ctx.scene.state as CustomSceneState).additionalQuestion = questionKey;
+        const replyMarkup = await this.telegramService.getEnumKeyboard(additionalQuestionsConfig[questionKey].options);
+        await ctx.reply(messages.additionalQuestionDescription + AdditionalQuestionsText[questionKey], replyMarkup);
+        return;
       }
     }
+
+    await ctx.scene.leave();
   }
 
   private async saveAdditionalResponse(@Ctx() ctx: SceneContext) {
@@ -144,16 +137,6 @@ export class GoSceneCreator {
       language_code: ctx.from.language_code
     };
     return this.usersService.getOrCreateUser(createUserDto);
-  }
-
-  private getEnumKeyboard(enumObj: Record<string, string>) {
-    const keyboard = Object.values(enumObj).map(option => [{ text: option }]);
-    return {
-      reply_markup: {
-        keyboard,
-        one_time_keyboard: true
-      }
-    };
   }
 
   @SceneEnter()
