@@ -18,6 +18,8 @@ import { FeedbackSceneCreator} from "./telegram/scenes/feedback.scene";
 import * as LocalSession from 'telegraf-session-local'
 import {GoSceneCreator} from "./telegram/scenes/go.scene";
 import {UsersService} from "./users/users.service";
+import {AdditionalQuestionResponseService} from "./surveys/additional-question-response.service";
+import {AdditionalQuestionResponse} from "./surveys/entities/additional-question-response.entity";
 
 const session = new LocalSession()
 
@@ -31,7 +33,7 @@ const session = new LocalSession()
       imports: [ConfigModule],
       useClass: OrmConfig,
     }),
-    TypeOrmModule.forFeature([Response]),
+    TypeOrmModule.forFeature([Response, AdditionalQuestionResponse]),
     TelegrafModule.forRoot({
       middlewares: [session.middleware()],
       token: process.env.TELEGRAM_BOT_TOKEN
@@ -41,6 +43,6 @@ const session = new LocalSession()
     QuestionsModule
   ],
   controllers: [AppController],
-  providers: [AppService, TelegramService, ResponsesService, FeedbackSceneCreator, GoSceneCreator, UsersService],
+  providers: [AppService, TelegramService, ResponsesService, FeedbackSceneCreator, GoSceneCreator, UsersService, AdditionalQuestionResponseService],
 })
 export class AppModule {}

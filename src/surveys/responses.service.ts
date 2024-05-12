@@ -37,7 +37,7 @@ export class ResponsesService {
     }
 
     const newResponse = this.responseRepository.create({
-      user: user, // Используйте объект, а не ID
+      user: user,
       question: question,
       choice: createResponseDto.choice
     });

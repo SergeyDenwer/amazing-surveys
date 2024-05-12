@@ -1,5 +1,5 @@
 // src/response/entities/response.entity.ts
-import { Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, Column } from 'typeorm';
+import {Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, Column, CreateDateColumn} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Question } from './question.entity';
 
@@ -22,4 +22,7 @@ export class Response {
     default: null
   })
   choice: string;
+
+  @CreateDateColumn()
+  created_at: Date;
 }

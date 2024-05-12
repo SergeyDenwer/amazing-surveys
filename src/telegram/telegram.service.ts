@@ -1,6 +1,6 @@
 // telegram.service.ts
 import {Update, Ctx, Start, Help, Command, InjectBot, On} from 'nestjs-telegraf';
-import {Context, Telegraf} from 'telegraf';
+import {Context, Telegraf, Markup} from 'telegraf';
 import { Injectable } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { messages } from "../messages";
@@ -24,28 +24,21 @@ export class TelegramService {
     private questionsService: QuestionsService,
   ) {}
 
-  async sendQuestion(chatId: number) {
+  async sendQuestion(chatId: number, cronMessage: string | null = null) {
     const question = await this.questionsService.getLatestQuestion();
     if (!question) {
       await this.bot.telegram.sendMessage(chatId, messages.notExistQuestion);
       return;
     }
 
-    const message = question.question + '\n\n' + messages.question;
-    const replyMarkup = {
-      reply_markup: {
-        keyboard: [
-          [{ text: AnswerOptions.Option1 }],
-          [{ text: AnswerOptions.Option2 }],
-          [{ text: AnswerOptions.Option3 }],
-          [{ text: AnswerOptions.Option4 }],
-          [{ text: AnswerOptions.Option5 }],
-        ],
-        one_time_keyboard: true,
-      },
-    };
-
+    const message = (cronMessage || '') + question.question + '\n\n' + messages.question;
+    const replyMarkup = await this.getEnumKeyboard(AnswerOptions);
     await this.bot.telegram.sendMessage(chatId, message, replyMarkup);
+  }
+
+  async getEnumKeyboard(enumObj: Record<string, string>) {
+    const keyboard = Object.values(enumObj).map(option => [{ text: option }]);
+    return Markup.keyboard(keyboard).oneTime();
   }
 
   @Start()
@@ -89,12 +82,12 @@ export class TelegramService {
     return;
   }
 
-  //@Cron('49 22 * * MON')
+  //@Cron('35 14 * * MON')
   async handleCron() {
     const users = await this.usersService.findAll();
     for (const user of users) {
       const chatId = user.chat_id;
-      await this.sendQuestion(chatId);
+      await this.sendQuestion(chatId, messages.cronMessage);
     }
   }
 }

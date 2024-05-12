@@ -1,3 +1,4 @@
+//feedback.module.ts
 import {Feedback} from "./entities/feedback.entity";
 import {FeedbackService} from "./feedback.service";
 import {UsersService} from "../users/users.service";
