@@ -35,15 +35,15 @@ export const messages = {
 /feedback - Помочь нам улучшить ПИЗДЕЦОМЕТР.`,
 
   alreadyResponded: 'Вы уже отвечали на этот вопрос. В понедельник будет результат и новый опрос.',
-  errorResponse: 'Что то сломалось',
-  thanksResponse: 'Спасибо за ваш ответ.',
+  errorResponse: 'Что то сломалось(',
+  thanksResponse: 'Спасибо за ваш ответ!',
   thanksResponseDescription: 'Результаты этого опроса будут опубликованны в понедельник. Сейчас вы можете видеть результаты прошлого опроса.',
   feedbackTitle: 'Оставьте свой отзыв о работе бота',
   notExistFeedback: 'Вы не написали текст для отзыва',
   feedbackResponse: 'Спасибо за ваш отзыв!',
   question: 'Как эта новость повлияла на ваше эмоциональное состояние и привычный образ жизни?\n',
   cronMessage: 'Привет! Новая неделя. Новый опрос:' + '\n\n',
-  additionalQuestionDescription: 'Ответьте пожалуйста на дополнительный вопрос. Это поможет нам сегментировать ответы.' + '\n\n',
+  additionalQuestionDescription: 'Ответьте, пожалуйста, на дополнительный вопрос. Это поможет нам сегментировать ответы.' + '\n\n',
   [AdditionalQuestions.AreYouInRussia]: 'Вы сейчас находитесь в России?',
   [AdditionalQuestions.HowOldAreYou]: 'Сколько вам лет?',
 
