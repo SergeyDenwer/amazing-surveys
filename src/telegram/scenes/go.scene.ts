@@ -66,7 +66,12 @@ export class GoSceneCreator {
 
         (ctx.scene.state as CustomSceneState).questionIndex += 1;
         await this.additionalQuestion(ctx)
+      } else {
+        await ctx.reply(messages.notExistQuestion);
+        await ctx.scene.leave();
       }
+    } else {
+      await ctx.scene.leave();
     }
   }
 
