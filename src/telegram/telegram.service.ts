@@ -8,6 +8,7 @@ import {SceneContext} from "telegraf/scenes";
 import {UsersService} from "../users/users.service";
 import {QuestionsService} from "../surveys/questions.service";
 import {AnswerOptions} from "../constants/answer-options.enum";
+import {GenerateImage} from "../utils/imageGenerator";
 
 interface SessionData {
   hasStarted?: boolean;
@@ -65,8 +66,11 @@ export class TelegramService {
 
   @Command('go')
   async getQuestion(@Ctx() ctx: SceneContext) {
+    const gi = new GenerateImage();
+    gi.generateImage();
+    return;
     await ctx.scene.enter('goScene')
-    return
+    return;
   }
 
   @Command('feedback')
@@ -84,7 +88,7 @@ export class TelegramService {
     return;
   }
 
-  @Cron('30 12 * * MON')
+  //@Cron('30 12 * * MON')
   async handleCron() {
     const users = await this.usersService.findAll();
     for (const user of users) {
