@@ -66,7 +66,7 @@ export class TelegramService {
 
   @Command('go')
   async getQuestion(@Ctx() ctx: SceneContext) {
-    const gi = new GenerateImage();
+    const gi = new GenerateImage(null, null, null, null, null, null);
     gi.generateImage();
     return;
     await ctx.scene.enter('goScene')
