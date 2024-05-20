@@ -161,12 +161,13 @@ export class GoSceneCreator {
 
   @On('text')
   async handleText(@Ctx() ctx: SceneContext) {
-    //await ctx.scene.leave(); return;
     const stage = (ctx.scene.state as CustomSceneState).questionIndex;
     if(stage === 0){
       await this.saveResponse(ctx)
-    } else {
+    } else if(stage === 1){
       await this.saveAdditionalResponse(ctx);
+    } else {
+      await ctx.scene.leave(); return;
     }
   }
 }
