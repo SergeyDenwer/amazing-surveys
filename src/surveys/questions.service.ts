@@ -17,4 +17,8 @@ export class QuestionsService {
       .orderBy('created_at', 'DESC')
       .getOne();
   }
+
+  async findOne(questionId: number): Promise<Question> {
+    return this.questionRepository.findOne({ where: { id: questionId } });
+  }
 }

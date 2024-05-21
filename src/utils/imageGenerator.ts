@@ -1,9 +1,10 @@
 import { createCanvas, registerFont, CanvasRenderingContext2D, Canvas } from 'canvas';
 import * as fs from 'fs';
 import * as path from 'path';
-import {AnswerOptions} from "../constants/answer-options.enum";
+import { AnswerOptions } from "../constants/answer-options.enum";
+import * as moment from 'moment';
 
-interface Option {
+export interface Option {
   text: string;
   percentage: number;
 }
@@ -12,30 +13,60 @@ export class GenerateImage {
   private readonly date: string;
   private readonly text: string;
   private readonly percentage: number;
-  private readonly percentText: string;
-  private options: Option[];
-  private readonly votesCountText: string;
+  private readonly percentTexts: Option[];
+  private readonly options: Option[];
+  private readonly votesCount: number;
 
-  constructor(date: string, text: string, percentage: number, percentText: string, options: Option[], votesCountText: string) {
+  private mainSpeedometerParams = {
+    radius: 168,
+    thickness: 31,
+    needleThickness: 5,
+    needleCircleRadius: 14,
+    needleLength: 144,
+    percentageFontSize: 58,
+    labelFontSize: 30,
+    tickStartOffset: 36,
+    tickEndOffset: 54,
+    distanceFromNeedle: 96
+  };
+
+  private avatarSpeedometerParams = {
+    radius: 192,
+    thickness: 36,
+    needleThickness: 17,
+    needleCircleRadius: 29,
+    needleLength: 156,
+    percentageFontSize: 134,
+    labelFontSize: 29,
+    tickStartOffset: 42,
+    tickEndOffset: 60,
+    distanceFromNeedle: 168
+  };
+
+  constructor(date: string, text: string, percentage: number, percentTexts: Option[], options: Option[], votesCount: number) {
     this.date = date;
     this.text = text;
     this.percentage = percentage;
-    this.percentText = percentText;
+    this.percentTexts = percentTexts;
     this.options = options;
-    this.votesCountText = votesCountText;
+    this.votesCount = votesCount;
     this.registerFonts();
   }
 
-  // Регистрация шрифтов
-  registerFonts() {
-    const notoSansPath = path.join(__dirname, '..', '..', '..', 'assets', 'NotoSans-Regular.ttf');
-    const palanquinDarkPath = path.join(__dirname, '..', '..', '..', 'assets', 'PalanquinDark-Regular.ttf');
-    registerFont(notoSansPath, { family: 'Noto Sans' });
-    registerFont(palanquinDarkPath, { family: 'Palanquin Dark' });
+  private registerFonts() {
+    const fonts = [
+      { path: 'NotoSans-Regular.ttf', family: 'Noto Sans' },
+      { path: 'NotoSans-SemiBold.ttf', family: 'Noto Sans SemiBold' },
+      { path: 'PalanquinDark-Regular.ttf', family: 'Palanquin Dark' }
+    ];
+
+    fonts.forEach(font => {
+      const fontPath = path.join(__dirname, '..', '..', '..', 'assets', font.path);
+      registerFont(fontPath, { family: font.family });
+    });
   }
 
-  // Обертка текста для его переноса
-  wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): number {
+  private wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): number {
     const words = text.split(' ');
     let line = '';
     let totalHeight = 0;
@@ -43,8 +74,7 @@ export class GenerateImage {
     words.forEach((word, n) => {
       const testLine = line + word + ' ';
       const metrics = ctx.measureText(testLine);
-      const testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
+      if (metrics.width > maxWidth && n > 0) {
         ctx.fillText(line, x, y);
         line = word + ' ';
         y += lineHeight;
@@ -57,11 +87,10 @@ export class GenerateImage {
     ctx.fillText(line, x, y);
     totalHeight += lineHeight;
 
-    return totalHeight; // Возвращаем полную высоту текста
+    return totalHeight;
   }
 
-  // Рисование закругленных прямоугольников
-  drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number, bottomOnly = false) {
+  private drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number, bottomOnly = false) {
     ctx.beginPath();
     ctx.moveTo(x + (bottomOnly ? 0 : radius), y);
     ctx.lineTo(x + width - (bottomOnly ? 0 : radius), y);
@@ -80,14 +109,32 @@ export class GenerateImage {
     ctx.fill();
   }
 
-  // Рисование спидометра
-  drawSpeedometer(ctx: CanvasRenderingContext2D, centerX: number, centerY: number) {
-    const offset = 5; // Отступ 5 пикселей со всех сторон
-    const radius = 130 - offset; // Радиус для учета отступов
-    const thickness = 20; // Толщина
-    const needleLength = radius - 15; // Длина стрелки
+  private getPercentText(percentage: number): string {
+    return this.percentTexts.find(opt => percentage <= opt.percentage)?.text || this.percentTexts[this.percentTexts.length - 1].text;
+  }
 
-    // Рисование цветной полуокружности
+  private getYearAndWeekFromDate(date: string): { year: number, week: number } {
+    const formattedDate = moment(date, 'DD.MM.YYYY');
+    return {
+      year: formattedDate.year(),
+      week: formattedDate.week()
+    };
+  }
+
+  private saveImage(buffer: Buffer, fileName: string) {
+    const { year, week } = this.getYearAndWeekFromDate(this.date);
+    const outputDir = path.join(__dirname,  '..', '..', '..', 'images', 'results', year.toString(), `${week}`);
+    fs.mkdirSync(outputDir, { recursive: true });
+    const imagePath = path.join(outputDir, fileName);
+    fs.writeFileSync(imagePath, buffer);
+  }
+
+  private drawSpeedometer(ctx: CanvasRenderingContext2D, centerX: number, centerY: number, params: any) {
+    const {
+      radius, thickness, needleThickness, needleCircleRadius, needleLength,
+      percentageFontSize, labelFontSize, tickStartOffset, tickEndOffset, distanceFromNeedle
+    } = params;
+
     const gradient = ctx.createLinearGradient(centerX - radius, centerY, centerX + radius, centerY);
     gradient.addColorStop(0, '#FFF500');
     gradient.addColorStop(1, '#FF0000');
@@ -98,15 +145,16 @@ export class GenerateImage {
     ctx.arc(centerX, centerY, radius, Math.PI, 2 * Math.PI, false);
     ctx.stroke();
 
-    // Рисование насечек
-    ctx.lineWidth = 3; // Толщина линии
+    ctx.lineCap = 'round';
+    ctx.lineWidth = needleThickness;
     ctx.strokeStyle = '#FFFFFF';
+
     for (let i = 0; i <= 5; i++) {
       const angle = Math.PI + i * (Math.PI / 5);
-      const startX = centerX + (radius - 25) * Math.cos(angle);
-      const startY = centerY + (radius - 25) * Math.sin(angle);
-      const endX = centerX + (radius - 40) * Math.cos(angle);
-      const endY = centerY + (radius - 40) * Math.sin(angle);
+      const startX = centerX + (radius - tickStartOffset) * Math.cos(angle);
+      const startY = centerY + (radius - tickStartOffset) * Math.sin(angle);
+      const endX = centerX + (radius - tickEndOffset) * Math.cos(angle);
+      const endY = centerY + (radius - tickEndOffset) * Math.sin(angle);
 
       ctx.beginPath();
       ctx.moveTo(startX, startY);
@@ -114,173 +162,174 @@ export class GenerateImage {
       ctx.stroke();
     }
 
-    // Рисование стрелки
-    const needleAngle = Math.PI + this.percentage * Math.PI;
+    const needleAngle = Math.PI + (this.percentage / 100) * Math.PI;
     const needleEndX = centerX + needleLength * Math.cos(needleAngle);
     const needleEndY = centerY + needleLength * Math.sin(needleAngle);
 
-    ctx.lineWidth = 4; // Толщина линии
-    ctx.strokeStyle = '#FFFFFF';
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
     ctx.lineTo(needleEndX, needleEndY);
     ctx.stroke();
 
-    // Рисование кружка в начале стрелки
     ctx.fillStyle = '#FFFFFF';
     ctx.beginPath();
-    ctx.arc(centerX, centerY, 12, 0, 2 * Math.PI); // Радиус круга
+    ctx.arc(centerX, centerY, needleCircleRadius, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Рисование процента
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '48px "Palanquin Dark"';
+    ctx.font = `${percentageFontSize}px "Palanquin Dark"`;
     ctx.textAlign = 'center';
-    ctx.fillText(`${Math.round(this.percentage * 100)}%`, centerX, centerY + 80);
+    ctx.fillText(`${this.percentage}%`, centerX, centerY + distanceFromNeedle);
 
-    // Рисование текста под процентом
-    ctx.fillStyle = '#AAAAAA'; // Светло-серый цвет
-    ctx.font = '24px "Noto Sans"';
-    ctx.fillText(this.percentText, centerX, centerY + 130);
+    if (params === this.mainSpeedometerParams) {
+      ctx.fillStyle = '#AAAAAA';
+      ctx.font = `${labelFontSize}px "Noto Sans SemiBold"`;
+      ctx.fillText(this.getPercentText(this.percentage), centerX, centerY + distanceFromNeedle + 60);
+    }
 
-    // Добавление закруглений
-    ctx.save(); // Сохранение текущего состояния контекста
-    ctx.fillStyle = '#FFF500'; // Левый край цветной полуокружности
-    this.drawRoundedRect(ctx, centerX - radius - thickness / 2, centerY - thickness / 2, thickness, thickness, thickness / 3, true);
-    ctx.restore(); // Восстановление состояния контекста
+    ctx.save();
+    ctx.fillStyle = '#FFF500';
+    this.drawRoundedRect(ctx, centerX - radius - thickness / 2, centerY - thickness / 4, thickness, thickness / 2, thickness / 3, true);
+    ctx.restore();
 
-    ctx.save(); // Сохранение текущего состояния контекста
-    ctx.fillStyle = '#FF0000'; // Правый край цветной полуокружности
-    this.drawRoundedRect(ctx, centerX + radius - thickness / 2, centerY - thickness / 2, thickness, thickness, thickness / 3, true);
-    ctx.restore(); // Восстановление состояния контекста
+    ctx.save();
+    ctx.fillStyle = '#FF0000';
+    this.drawRoundedRect(ctx, centerX + radius - thickness / 2, centerY - thickness / 4, thickness, thickness / 2, thickness / 3, true);
+    ctx.restore();
   }
 
-  // Создание временного холста для вариантов
-  drawOptionsOnTempCanvas(canvasWidth: number) {
-    const tempCanvas = createCanvas(canvasWidth, 4000);
+  private drawMainSpeedometer(ctx: CanvasRenderingContext2D, centerX: number, centerY: number) {
+    this.drawSpeedometer(ctx, centerX, centerY, this.mainSpeedometerParams);
+  }
+
+  private drawOptionsOnTempCanvas(canvasWidth: number) {
+    const tempCanvas = createCanvas(canvasWidth, 4800);
     const tempCtx = tempCanvas.getContext('2d');
     const barColors = ['#FFF500', '#FFCC00', '#FFA300', '#FF7A00', '#FF0000'];
-    const textToPercentageSpace = 100; // Расстояние между текстом варианта и процентом
-    const textLineHeight = 30; // Высота строки текста
-    const barHeight = 12; // Высота полоски
+    const textToPercentageSpace = 120;
+    const textLineHeight = 36;
+    const barHeight = 14;
     const barRadius = barHeight / 2;
-    const spacingBelowText = -15; // Отступ под текстом
-    const spacingOptions = 15; // Расстояние между блоками
-    const paddingLeftRight = 20;
+    const spacingBelowText = -18;
+    const spacingOptions = 18;
+    const paddingLeftRight = 24;
 
     let currentY = 0;
 
     this.options.forEach((option, index) => {
-      // Рисуем процент
-      tempCtx.textAlign = 'right';
-      tempCtx.fillStyle = '#FFFFFF';
-      tempCtx.font = '25px "Noto Sans"';
-      tempCtx.fillText(`${option.percentage}%`, canvasWidth - paddingLeftRight, currentY + textLineHeight);
-
-      // Рисуем текст варианта
       tempCtx.textAlign = 'left';
+      tempCtx.fillStyle = '#FFFFFF';
+      tempCtx.font = `28px "Noto Sans"`;
       const textWidth = canvasWidth - paddingLeftRight * 2 - textToPercentageSpace;
       const textY = currentY + textLineHeight;
       const textHeight = this.wrapText(tempCtx, option.text, paddingLeftRight, textY, textWidth, textLineHeight);
 
-      // Рисуем полоску с закруглениями
-      const barWidth = (canvasWidth - paddingLeftRight * 2) * (option.percentage / 100);
+      const maxBarWidth = canvasWidth - paddingLeftRight * 3 - 90;
+      let barWidth = (canvasWidth - paddingLeftRight * 2) * (option.percentage / 100);
+      barWidth = Math.min(barWidth, maxBarWidth);
       tempCtx.fillStyle = barColors[index];
       const barY = textY + textHeight + spacingBelowText;
 
-      tempCtx.beginPath();
-      tempCtx.moveTo(paddingLeftRight + barRadius, barY);
-      tempCtx.lineTo(paddingLeftRight + barWidth - barRadius, barY);
-      tempCtx.arc(paddingLeftRight + barWidth - barRadius, barY + barRadius, barRadius, 1.5 * Math.PI, 0.5 * Math.PI, false);
-      tempCtx.lineTo(paddingLeftRight + barRadius, barY + barHeight);
-      tempCtx.arc(paddingLeftRight + barRadius, barY + barRadius, barRadius, 0.5 * Math.PI, 1.5 * Math.PI, false);
-      tempCtx.closePath();
-      tempCtx.fill();
+      if (option.percentage > 0) {
+        tempCtx.beginPath();
+        if (option.percentage < 1) {
+          tempCtx.moveTo(paddingLeftRight, barY);
+          tempCtx.lineTo(paddingLeftRight + barWidth, barY);
+          tempCtx.lineTo(paddingLeftRight + barWidth, barY + barHeight);
+          tempCtx.lineTo(paddingLeftRight, barY + barHeight);
+        } else {
+          tempCtx.moveTo(paddingLeftRight + barRadius, barY);
+          tempCtx.lineTo(paddingLeftRight + barWidth - barRadius, barY);
+          tempCtx.arc(paddingLeftRight + barWidth - barRadius, barY + barRadius, barRadius, 1.5 * Math.PI, 0.5 * Math.PI, false);
+          tempCtx.lineTo(paddingLeftRight + barRadius, barY + barHeight);
+          tempCtx.arc(paddingLeftRight + barRadius, barY + barRadius, barRadius, 0.5 * Math.PI, 1.5 * Math.PI, false);
+        }
+        tempCtx.closePath();
+        tempCtx.fill();
+      } else {
+        tempCtx.beginPath();
+        tempCtx.arc(paddingLeftRight + barRadius, barY + barRadius, barRadius, 0, 2 * Math.PI);
+        tempCtx.closePath();
+        tempCtx.fill();
+      }
 
-      // Обновляем currentY
+      tempCtx.textAlign = 'right';
+      tempCtx.fillStyle = '#FFFFFF';
+      tempCtx.font = `30px "Palanquin Dark"`;
+      tempCtx.fillText(`${option.percentage}%`, canvasWidth - paddingLeftRight, barY + barHeight - 6);
+
       currentY = barY + barHeight + spacingOptions;
     });
 
     return { tempCanvas, optionsHeight: currentY };
   }
 
-  // Создание основного холста
-  createMainCanvas(canvasWidth: number, totalHeight: number) {
+  private createMainCanvas(canvasWidth: number, totalHeight: number) {
     const canvas = createCanvas(canvasWidth, totalHeight);
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#000'; // Фон холста черный
+    ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#fff';
     return { canvas, ctx };
   }
 
-  // Рисование заголовка
-  drawHeader(ctx: CanvasRenderingContext2D, paddingLeftRight: number, paddingTopBottom: number) {
-    ctx.font = '20px "Noto Sans"';
-    ctx.fillText(this.date, paddingLeftRight, paddingTopBottom);
+  private drawHeader(ctx: CanvasRenderingContext2D, paddingLeftRight: number, paddingTopBottom: number) {
+    ctx.font = `26px "Noto Sans"`;
+    ctx.fillText(`Опрос от ${this.date}`, paddingLeftRight, paddingTopBottom);
   }
 
-  // Рисование текста
-  drawText(ctx: CanvasRenderingContext2D, text: string, paddingLeftRight: number, textY: number, canvasWidth: number, lineHeight: number) {
-    ctx.font = '25px "Noto Sans"';
+  private drawText(ctx: CanvasRenderingContext2D, text: string, paddingLeftRight: number, textY: number, canvasWidth: number, lineHeight: number) {
+    ctx.font = `28px "Noto Sans"`;
     return this.wrapText(ctx, text, paddingLeftRight, textY, canvasWidth - 2 * paddingLeftRight, lineHeight);
   }
 
-  // Рисование секции со спидометром
-  drawSpeedometerSection(ctx: CanvasRenderingContext2D, centerX: number, speedometerY: number) {
-    const grayRectX = (ctx.canvas.width - 540) / 2;
+  private drawSpeedometerSection(ctx: CanvasRenderingContext2D, centerX: number, speedometerY: number, paddingLeftRight: number) {
+    const grayRectX = paddingLeftRight;
     const grayRectY = speedometerY;
-    ctx.fillStyle = '#0e0e0e';
-    this.drawRoundedRect(ctx, grayRectX, grayRectY, 540, 320, 10);
-    const adjustedCenterY = grayRectY + (320 / 2);
-    this.drawSpeedometer(ctx, centerX, adjustedCenterY);
+    ctx.fillStyle = '#151515';
+    this.drawRoundedRect(ctx, grayRectX, grayRectY, ctx.canvas.width - paddingLeftRight * 2, 410, 12);
+    const adjustedCenterY = grayRectY + 218;
+    this.drawMainSpeedometer(ctx, centerX, adjustedCenterY);
     return grayRectY;
   }
 
-  // Рисование вариантов
-  drawOptions(ctx: CanvasRenderingContext2D, optionsCanvas: Canvas, optionsY: number) {
+  private drawOptions(ctx: CanvasRenderingContext2D, optionsCanvas: Canvas, optionsY: number) {
     ctx.drawImage(optionsCanvas, 0, optionsY);
   }
 
-  // Рисование нижнего колонтитула
-  drawFooter(ctx: CanvasRenderingContext2D, votesCountText: string, paddingLeftRight: number, votesCountTextY: number) {
+  private drawFooter(ctx: CanvasRenderingContext2D, votesCountText: string, paddingLeftRight: number, votesCountTextY: number) {
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'left';
+    ctx.font = `28px "Noto Sans"`;
     ctx.fillText(votesCountText, paddingLeftRight, votesCountTextY);
   }
 
-  // Основной метод для генерации изображения
-  async generateImage() {
-    console.log('Generating image...');
-    console.time('Image generation time');
+  async generateMainImage() {
+    console.log('Generating main image...');
+    console.time('Image main generation time');
 
-    const canvasWidth = 724; // Ширина холста
-    const paddingLeftRight = 20; // Отступы
-    const paddingTopBottom = 80; // Отступы
-    const spacingDateText = 50; // Промежуток
-    const spacingTextSpeedometer = 30; // Промежуток
-    const spacingOptions = 30; // Отступ от серого блока до блока с вариантами
-    const spacingVotesCount = 30; // Отступ между блоком с опциями и текстом "Дата создания"
+    const canvasWidth = 868;
+    const paddingLeftRight = 24;
+    const paddingTopBottom = 96;
+    const spacingDateText = 60;
+    const spacingTextSpeedometer = 36;
+    const spacingOptions = 36;
+    const spacingVotesCount = 36;
+    const lineHeight = 36;
 
-    const lineHeight = 30; // Интервал
-
-    // Создаем временный холст для расчета высоты текста
-    const tempCanvas = createCanvas(canvasWidth, 4000);
+    const tempCanvas = createCanvas(canvasWidth, 4800);
     const tempCtx = tempCanvas.getContext('2d');
     tempCtx.fillStyle = '#fff';
-    tempCtx.font = '25px "Noto Sans"'; // Размер шрифта
+    tempCtx.font = `28px "Noto Sans"`;
 
     const textHeight = this.wrapText(tempCtx, this.text, paddingLeftRight, paddingTopBottom, canvasWidth - 2 * paddingLeftRight, lineHeight);
 
-    // Создаем временный холст для вариантов ответов
     const { tempCanvas: optionsCanvas, optionsHeight } = this.drawOptionsOnTempCanvas(canvasWidth);
 
-    tempCtx.font = '25px "Noto Sans"';
-    const creationDateHeight = tempCtx.measureText(this.votesCountText).actualBoundingBoxAscent;
+    const votesCountText = `Всего голосов: ${this.votesCount}`;
+    tempCtx.font = `28px "Noto Sans"`;
+    const creationDateHeight = tempCtx.measureText(votesCountText).actualBoundingBoxAscent;
 
-    const totalHeight = paddingTopBottom + spacingDateText + textHeight + spacingTextSpeedometer + 270 + spacingOptions + optionsHeight + spacingVotesCount + creationDateHeight + paddingTopBottom;
-
-    console.log(`Total calculated height: ${totalHeight}`);
+    const totalHeight = paddingTopBottom + spacingDateText + textHeight + spacingTextSpeedometer + 384 + spacingOptions + optionsHeight + spacingVotesCount + creationDateHeight + paddingTopBottom;
 
     const { canvas, ctx } = this.createMainCanvas(canvasWidth, totalHeight);
 
@@ -290,38 +339,40 @@ export class GenerateImage {
     const actualTextHeight = this.drawText(ctx, this.text, paddingLeftRight, textY, canvasWidth, lineHeight);
 
     const speedometerY = textY + actualTextHeight + spacingTextSpeedometer;
-    const centerX = (canvas.width - 540) / 2 + 540 / 2;
-    const grayRectY = this.drawSpeedometerSection(ctx, centerX, speedometerY);
+    const centerX = (canvas.width - 648) / 2 + 648 / 2;
+    const grayRectY = this.drawSpeedometerSection(ctx, centerX, speedometerY, paddingLeftRight);
 
-    const optionsY = grayRectY + 320 + spacingOptions;
+    const optionsY = grayRectY + 420 + spacingOptions;
     this.drawOptions(ctx, optionsCanvas, optionsY);
 
     const votesCountTextY = optionsY + optionsHeight + spacingVotesCount;
-    this.drawFooter(ctx, this.votesCountText, paddingLeftRight, votesCountTextY);
+    this.drawFooter(ctx, votesCountText, paddingLeftRight, votesCountTextY);
 
     const buffer = canvas.toBuffer('image/png');
-    fs.writeFileSync('./image.png', buffer);
-    console.timeEnd('Image generation time');
-    console.log('The image was created successfully!');
+    this.saveImage(buffer, 'result.png');
+    console.timeEnd('Image main generation time');
+    console.log('The main image was created successfully!');
+  }
+
+  async generateAvatar() {
+    console.log('Generating avatar...');
+    console.time('Image avatar generation time');
+    const canvasSize = 504;
+    const params = this.avatarSpeedometerParams;
+    const canvas = createCanvas(canvasSize, canvasSize);
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    this.drawSpeedometer(ctx, centerX, centerY, params);
+
+    const buffer = canvas.toBuffer('image/png');
+    this.saveImage(buffer, 'avatar.png');
+    console.timeEnd('Image avatar generation time');
+    console.log('The avatar speedometer image was created successfully!');
   }
 }
-
-let date = 'Опрос от 21.05.2024';
-let text = 'В Москве 17 апреля 2024 года произошло убийство, спровоцированное конфликтом из-за парковки. ' +
-  'Согласно материалам следствия, инцидент начался после того, как один из подозреваемых оставил свой автомобиль ' +
-  'на тротуаре возле подъезда жилого дома, вызвав недовольство местного жителя. Получив замечание, ' +
-  'подозреваемый позвонил своим родственникам, которые вскоре прибыли на место. ' +
-  'В ходе возникшей ссоры местный житель получил серьезные травмы и позже скончался в больнице.';
-let options: Option[] = [
-  { text: AnswerOptions.Option1, percentage: 10 },
-  { text: AnswerOptions.Option2, percentage: 15 },
-  { text: AnswerOptions.Option3, percentage: 20 },
-  { text: AnswerOptions.Option4, percentage: 25 },
-  { text: AnswerOptions.Option5, percentage: 30 }
-];
-let percentage = 0.3;
-let percentText = 'ПОЧТИ НЕ УДИВИЛО';
-let votesCountText = 'Количество голосов: 17';
-
-const generator = new GenerateImage(date, text, percentage, percentText, options, votesCountText);
-generator.generateImage();
