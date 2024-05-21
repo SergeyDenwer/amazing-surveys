@@ -44,6 +44,7 @@ export const messages = {
   question: 'Как эта новость повлияла на ваше эмоциональное состояние и привычный образ жизни?\n',
   cronMessage: 'Привет! Новая неделя. Новый опрос:' + '\n\n',
   additionalQuestionDescription: 'Ответьте, пожалуйста, на дополнительный вопрос. Это поможет нам сегментировать ответы.' + '\n\n',
+  noPreviousQuestionResults: 'Нет результатов для прошлого опроса',
   [AdditionalQuestions.AreYouInRussia]: 'Вы сейчас находитесь в России?',
   [AdditionalQuestions.HowOldAreYou]: 'Сколько вам лет?',
 
