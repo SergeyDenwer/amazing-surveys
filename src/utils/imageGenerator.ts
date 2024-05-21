@@ -1,7 +1,6 @@
 import { createCanvas, registerFont, CanvasRenderingContext2D, Canvas } from 'canvas';
 import * as fs from 'fs';
 import * as path from 'path';
-import { AnswerOptions } from "../constants/answer-options.enum";
 import * as moment from 'moment';
 
 export interface Option {

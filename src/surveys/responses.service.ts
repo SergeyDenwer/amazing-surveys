@@ -79,11 +79,11 @@ export class ResponsesService {
     ) / 10;
 
     const options: Option[] = [
-      { text:  AnswerOptions.Option1, percentage: (optionsCount.Option1 / totalResponses) * 100 },
-      { text:  AnswerOptions.Option2, percentage: (optionsCount.Option2 / totalResponses) * 100 },
-      { text:  AnswerOptions.Option3, percentage: (optionsCount.Option3 / totalResponses) * 100 },
-      { text:  AnswerOptions.Option4, percentage: (optionsCount.Option4 / totalResponses) * 100 },
-      { text:  AnswerOptions.Option5, percentage: (optionsCount.Option5 / totalResponses) * 100 }
+      { text:  AnswerOptions.Option1, percentage: Math.round((optionsCount.Option1 / totalResponses) * 100 * 10) / 10 },
+      { text:  AnswerOptions.Option2, percentage: Math.round((optionsCount.Option2 / totalResponses) * 100 * 10) / 10 },
+      { text:  AnswerOptions.Option3, percentage: Math.round((optionsCount.Option3 / totalResponses) * 100 * 10) / 10 },
+      { text:  AnswerOptions.Option4, percentage: Math.round((optionsCount.Option4 / totalResponses) * 100 * 10) / 10 },
+      { text:  AnswerOptions.Option5, percentage: Math.round((optionsCount.Option5 / totalResponses) * 100 * 10) / 10 }
     ];
 
     const generator = new GenerateImage(moment(question.created_at).format('DD.MM.YYYY'), question.question, percentage, this.getPercentTexts(), options, totalResponses);
