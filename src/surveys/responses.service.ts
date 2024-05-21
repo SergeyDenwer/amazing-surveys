@@ -50,7 +50,6 @@ export class ResponsesService {
     return this.responseRepository.save(newResponse);
   }
 
-  // Новый метод для получения данных опроса и генерации изображения
   async generateImageForQuestion(questionId: number, fromTelegram: boolean = false): Promise<{mainImagePath: string, avatarImagePath: string} | void> {
     const question = await this.questionRepository.findOne({ where: { id: questionId } });
     if (!question) {
@@ -96,14 +95,11 @@ export class ResponsesService {
 
     const mainImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'result.png');
     const avatarImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'avatar.png');
-
-    // Возвращайте пути только если вызов из телеграм
     if (fromTelegram) {
       return { mainImagePath, avatarImagePath };
     }
   }
 
-  // Метод для получения текстов в зависимости от процента
   private getPercentTexts(): Option[] {
     return [
       { text: 'АБСОЛЮТНОЕ СПОКОЙСТВИЕ', percentage: 20 },

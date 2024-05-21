@@ -12,7 +12,6 @@ export class QuestionsService {
   ) {}
 
   async getLatestQuestion(): Promise<Question> {
-    // Получение последнего добавленного вопроса
     return this.questionRepository.createQueryBuilder()
       .orderBy('created_at', 'DESC')
       .getOne();
