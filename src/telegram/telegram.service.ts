@@ -107,7 +107,6 @@ export class TelegramService {
       const { mainImagePath, avatarImagePath } = imagePaths;
       await ctx.replyWithPhoto({ source: mainImagePath });
       await ctx.replyWithPhoto({ source: avatarImagePath });
-      await ctx.reply("Images generated successfully.");
     } else {
       await ctx.reply("Failed to generate images.");
     }
