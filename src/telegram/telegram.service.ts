@@ -80,7 +80,6 @@ export class TelegramService {
 
   @Command('gen')
   async generatePictures(@Ctx() ctx: SceneContext) {
-    console.log(11111);
     const allowedUserIds = [368397946, 6747384, 152816106];
     const userId = ctx.from.id;
 
@@ -124,7 +123,7 @@ export class TelegramService {
     return;
   }
 
-  //@Cron('30 12 * * MON')
+  @Cron('30 12 * * MON')
   async handleCron() {
     const users = await this.usersService.findAll();
     for (const user of users) {

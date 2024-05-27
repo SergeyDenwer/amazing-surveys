@@ -21,7 +21,7 @@ import * as fs from "node:fs";
 import * as moment from 'moment';
 
 interface CustomSceneState {
-  questionIndex?: number;
+  questionIndex?: string;
   additionalQuestion?: AdditionalQuestions;
   responseId?: number;
   user?: User;
@@ -74,7 +74,7 @@ export class GoSceneCreator {
           await ctx.scene.leave();
         }
 
-        (ctx.scene.state as CustomSceneState).questionIndex += 1;
+        (ctx.scene.state as CustomSceneState).questionIndex = 'additional';
         await this.additionalQuestion(ctx)
       } else {
         await ctx.reply(messages.notExistQuestion);
@@ -139,7 +139,6 @@ export class GoSceneCreator {
       return imagePath;
     }
 
-    // Запуск процесса генерации изображения
     const generatedImages = await this.responsesService.generateImageForQuestion(questionId, true);
     if (generatedImages) {
       return generatedImages.mainImagePath;
@@ -173,11 +172,11 @@ export class GoSceneCreator {
     const fromCron = (ctx.scene.state as any).fromCron as boolean;
     const message = (ctx.scene.state as any).message as string;
 
+    (ctx.scene.state as CustomSceneState).questionIndex = 'main';
+
     if (fromCron && message) {
-      (ctx.scene.state as CustomSceneState).questionIndex = 1;
       await this.saveResponse(ctx);
     } else {
-      (ctx.scene.state as CustomSceneState).questionIndex = 0;
       const chatId = ctx.chat.id;
       await this.telegramService.sendQuestion(chatId, null, ctx);
     }
@@ -186,9 +185,9 @@ export class GoSceneCreator {
   @On('text')
   async handleText(@Ctx() ctx: SceneContext) {
     const stage = (ctx.scene.state as CustomSceneState).questionIndex;
-    if(stage === 0){
+    if(stage === 'main'){
       await this.saveResponse(ctx)
-    } else if(stage === 1){
+    } else if(stage === 'additional'){
       await this.saveAdditionalResponse(ctx);
     } else {
       await ctx.scene.leave(); return;
