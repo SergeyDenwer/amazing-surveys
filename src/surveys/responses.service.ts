@@ -90,12 +90,13 @@ export class ResponsesService {
     await generator.generateMainImage();
     await generator.generateAvatar();
 
-    const year = moment(question.created_at).year();
-    const week = moment(question.created_at).week();
-
-    const mainImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'result.png');
-    const avatarImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'avatar.png');
     if (fromTelegram) {
+      const year = moment(question.created_at).year();
+      const week = moment(question.created_at).week();
+
+      const mainImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'result.png');
+      const avatarImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'avatar.png');
+
       return { mainImagePath, avatarImagePath };
     }
   }
