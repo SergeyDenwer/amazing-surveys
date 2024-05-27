@@ -80,6 +80,7 @@ export class TelegramService {
 
   @Command('gen')
   async generatePictures(@Ctx() ctx: SceneContext) {
+    console.log(11111);
     const allowedUserIds = [368397946, 6747384, 152816106];
     const userId = ctx.from.id;
 
