@@ -12,9 +12,19 @@ export class QuestionsService {
   ) {}
 
   async getLatestQuestion(): Promise<Question> {
-    // Получение последнего добавленного вопроса
     return this.questionRepository.createQueryBuilder()
       .orderBy('created_at', 'DESC')
       .getOne();
+  }
+
+  async findOne(questionId: number): Promise<Question> {
+    return this.questionRepository.findOne({ where: { id: questionId } });
+  }
+  async getPreviousQuestion(): Promise<Question | undefined> {
+    const questions = await this.questionRepository.find({
+      order: { created_at: 'DESC' },
+      take: 2
+    });
+    return questions.length > 1 ? questions[1] : undefined;
   }
 }

@@ -17,6 +17,8 @@ import {BinaryOptions} from "../../constants/binary-options.enum";
 import {AgeOptions} from "../../constants/age-options.enum";
 import {User} from "../../users/entities/user.entity";
 import {additionalQuestionsConfig} from "../../../config/additional-questions-config";
+import * as fs from "node:fs";
+import * as moment from 'moment';
 
 interface CustomSceneState {
   questionIndex?: number;
@@ -45,6 +47,7 @@ export class GoSceneCreator {
 
     if (answerOptionKey) {
       const latestQuestion = await this.questionsService.getLatestQuestion();
+      const previousQuestion = await this.questionsService.getPreviousQuestion();
       if (latestQuestion) {
         const alreadyResponded = await this.responsesService.hasUserAlreadyResponded(user.id, latestQuestion.id);
         if (alreadyResponded) {
@@ -61,8 +64,15 @@ export class GoSceneCreator {
         const response = await this.responsesService.create(createResponseDto);
         (ctx.scene.state as CustomSceneState).responseId = response.id;
 
-        await ctx.replyWithPhoto({ source: this.getImage('last_result.png') },
-          { caption: messages.thanksResponse + ' ' +  messages.thanksResponseDescription});
+        if (previousQuestion) {
+          const imagePath = await this.getImage('result.png', previousQuestion.id, previousQuestion.created_at);
+          await ctx.replyWithPhoto({ source: imagePath }, {
+            caption: messages.thanksResponse + ' ' + messages.thanksResponseDescription
+          });
+        } else {
+          await ctx.reply(messages.noPreviousQuestionResults);
+          await ctx.scene.leave();
+        }
 
         (ctx.scene.state as CustomSceneState).questionIndex += 1;
         await this.additionalQuestion(ctx)
@@ -119,9 +129,23 @@ export class GoSceneCreator {
     await ctx.scene.leave();
   }
 
-  private getImage(name: string){
+  private async getImage(name: string, questionId: number, date: Date) {
+    const year = moment(date).year();
+    const week = moment(date).week();
     const path = require('path');
-    return path.join(__dirname, '..', '..', '..', '..', 'images', name);
+    const imagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, name);
+
+    if (fs.existsSync(imagePath)) {
+      return imagePath;
+    }
+
+    // Запуск процесса генерации изображения
+    const generatedImages = await this.responsesService.generateImageForQuestion(questionId, true);
+    if (generatedImages) {
+      return generatedImages.mainImagePath;
+    }
+
+    throw new Error('Image generation failed');
   }
 
   private getEnumKeyByValue(enumObj: { [s: string]: string }, value: string): string | null {

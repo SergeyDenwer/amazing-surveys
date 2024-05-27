@@ -43,6 +43,14 @@ const session = new LocalSession()
     QuestionsModule
   ],
   controllers: [AppController],
-  providers: [AppService, TelegramService, ResponsesService, FeedbackSceneCreator, GoSceneCreator, UsersService, AdditionalQuestionResponseService],
+  providers: [
+    AppService,
+    TelegramService,
+    ResponsesService,
+    FeedbackSceneCreator,
+    GoSceneCreator,
+    UsersService,
+    AdditionalQuestionResponseService
+  ],
 })
 export class AppModule {}
