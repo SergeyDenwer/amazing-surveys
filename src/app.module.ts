@@ -10,18 +10,21 @@ import { TelegrafModule } from 'nestjs-telegraf';
 import { TelegramService } from './telegram/telegram.service';
 import { Response } from './surveys/entities/response.entity';
 import {UsersModule} from "./users/users.module";
-import {QuestionsModule} from "./surveys/questions.module";
+import { QuestionsModule } from "./surveys/questions.module";
 import {ResponsesService} from "./surveys/responses.service";
 import { ScheduleModule } from '@nestjs/schedule';
 import {FeedbackModule} from "./feedback/feedback.module";
 import { FeedbackSceneCreator} from "./telegram/scenes/feedback.scene";
-import * as LocalSession from 'telegraf-session-local'
 import {GoSceneCreator} from "./telegram/scenes/go.scene";
 import {UsersService} from "./users/users.service";
 import {AdditionalQuestionResponseService} from "./surveys/additional-question-response.service";
 import {AdditionalQuestionResponse} from "./surveys/entities/additional-question-response.entity";
-
-const session = new LocalSession()
+import { session } from 'telegraf';
+import { SessionModule } from './telegram/session.module';
+import { QuestionsModuleApi } from './api/questions/questions.module';
+import {SessionService} from "./telegram/session.service";
+import {TimerService} from "./telegram/timer.service";
+import {AdditionalQuestionSceneCreator} from "./telegram/scenes/additional.scene";
 
 @Module({
   imports: [
@@ -34,13 +37,19 @@ const session = new LocalSession()
       useClass: OrmConfig,
     }),
     TypeOrmModule.forFeature([Response, AdditionalQuestionResponse]),
-    TelegrafModule.forRoot({
-      middlewares: [session.middleware()],
-      token: process.env.TELEGRAM_BOT_TOKEN
+    TelegrafModule.forRootAsync({
+      imports: [SessionModule],
+      useFactory: (sessionStore: any) => ({
+        middlewares: [session({ store: sessionStore })],
+        token: process.env.TELEGRAM_BOT_TOKEN,
+      }),
+      inject: ['SESSION_STORE'],
     }),
     ScheduleModule.forRoot(),
     UsersModule,
-    QuestionsModule
+    QuestionsModule,
+    QuestionsModuleApi,
+    SessionModule,
   ],
   controllers: [AppController],
   providers: [
@@ -49,8 +58,12 @@ const session = new LocalSession()
     ResponsesService,
     FeedbackSceneCreator,
     GoSceneCreator,
+    AdditionalQuestionSceneCreator,
     UsersService,
-    AdditionalQuestionResponseService
+    AdditionalQuestionResponseService,
+    OrmConfig,
+    SessionService,
+    TimerService
   ],
 })
 export class AppModule {}

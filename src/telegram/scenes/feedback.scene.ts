@@ -1,4 +1,3 @@
-// feedback.scene.ts
 import { Injectable } from '@nestjs/common';
 import { FeedbackService } from '../../feedback/feedback.service';
 import { messages } from "../../messages";
@@ -7,6 +6,7 @@ import {SceneContext} from "telegraf/scenes";
 import {Ctx, On, Scene, SceneEnter} from "nestjs-telegraf";
 import {CreateUserDto} from "../../users/dto/create-user.dto";
 import {UsersService} from "../../users/users.service";
+import {TimerService} from "../timer.service";
 
 @Injectable()
 @Scene('feedbackScene')
@@ -14,15 +14,18 @@ export class FeedbackSceneCreator {
   constructor(
     private readonly feedbackService: FeedbackService,
     private usersService: UsersService,
+    private readonly timerService: TimerService,
   ) {}
+
   @SceneEnter()
   async sceneEnter(@Ctx() ctx: SceneContext){
-    await ctx.reply(messages.feedbackTitle)
+    await ctx.reply(messages.feedbackTitle);
+    this.timerService.setTimer(ctx);
   }
-
 
   @On('text')
   async handleText(@Ctx() ctx: SceneContext) {
+    this.timerService.clearTimer(ctx);
 
     const { text } = ctx;
     const createUserDto: CreateUserDto = {
