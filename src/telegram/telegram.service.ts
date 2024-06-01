@@ -1,30 +1,33 @@
 import { Injectable } from "@nestjs/common";
 import { Update, Ctx, Start, Help, Command, InjectBot, On } from 'nestjs-telegraf';
-import { Context, Telegraf, Markup } from 'telegraf';
+import { Context, Telegraf } from 'telegraf';
 import { Cron } from "@nestjs/schedule";
 import { messages } from "../messages";
 import { SceneContext } from "telegraf/scenes";
 import { UsersService } from "../users/users.service";
 import { QuestionsService } from "../surveys/questions.service";
-import { AnswerOptions } from "../constants/answer-options.enum";
 import { ResponsesService } from "../surveys/responses.service";
 import { SessionService } from './session.service';
-import { TimerService } from "./timer.service";
-import { User } from "../users/entities/user.entity";
-import * as fs from "node:fs";
-import * as moment from 'moment';
+import { TelegramUtils } from "./telegram.utils";
+import {AnswerOptions} from "../constants/answer-options.enum";
+import {AdditionalQuestionResponseService} from "../surveys/additional-question-response.service";
+import {User} from "../users/entities/user.entity";
 
 @Update()
 @Injectable()
 export class TelegramService {
+  private readonly telegramUtils: TelegramUtils;
+
   constructor(
     @InjectBot() private readonly bot: Telegraf<Context>,
     private readonly usersService: UsersService,
     private questionsService: QuestionsService,
     private responsesService: ResponsesService,
     private readonly sessionService: SessionService,
-    private readonly timerService: TimerService,
-  ) {}
+    private additionalQuestionResponseService: AdditionalQuestionResponseService,
+  ) {
+    this.telegramUtils = new TelegramUtils(usersService, responsesService, sessionService, additionalQuestionResponseService);
+  }
 
   @Start()
   async start(@Ctx() ctx: Context) {
@@ -86,7 +89,7 @@ export class TelegramService {
   async handleText(@Ctx() ctx: SceneContext) {
     const { text, chat } = ctx;
     const isValidAnswer = Object.values(AnswerOptions).includes(text as AnswerOptions);
-    let sessionData = await this.sessionService.getSession(chat.id);
+    const sessionData = await this.sessionService.getSession(chat.id);
 
     if (sessionData && sessionData.awaitingResponse) {
       if (isValidAnswer) {
@@ -111,61 +114,44 @@ export class TelegramService {
       let sessionData = await this.sessionService.getSession(chatId) || {};
       sessionData.awaitingResponse = true;
       await this.sessionService.setSession(chatId, sessionData);
-      await this.sendQuestion(chatId, messages.cronMessage);
+      await this.sendQuestion(user, messages.cronMessage);
     }
   }
 
-  async sendQuestion(chatId: number, cronMessage: string | null = null, ctx: SceneContext = null) {
+  async sendQuestion(user: User, cronMessage: string | null = null, ctx: SceneContext = null) {
+
     const question = await this.questionsService.getLatestQuestion();
     if (!question) {
-      await this.bot.telegram.sendMessage(chatId, messages.notExistQuestion);
+      await this.bot.telegram.sendMessage(user.chat_id, messages.notExistQuestion);
+      if(ctx) await ctx.scene.leave();
       return;
     }
 
+    const hasResponded = await this.responsesService.hasUserAlreadyResponded(user.id, question.id);
+    if (hasResponded) {
+      const additionalQuestionKey = await this.telegramUtils.checkAvailableQuestions(user)
+      if(additionalQuestionKey) {
+        await ctx.scene.enter('additionalQuestionScene', {
+          user: user,
+          responseId: null,
+          additionalQuestionKey: additionalQuestionKey,
+        });
+        return;
+      }
+      await this.bot.telegram.sendMessage(user.chat_id, messages.alreadyResponded);
+      if(ctx) await ctx.scene.leave();
+      return;
+    }
+
+    let sessionData = await this.sessionService.getSession(user.chat_id) || {};
+    sessionData.mainQuestion = question;
+    await this.sessionService.setSession(user.chat_id, sessionData);
+    if (ctx) {
+      (ctx.scene.state as any).mainQuestion = question;
+    }
+
     const message = (cronMessage || '') + question.question + '\n\n' + messages.question;
-    const replyMarkup = await this.getEnumKeyboard(AnswerOptions);
-    await this.bot.telegram.sendMessage(chatId, message, replyMarkup);
-  }
-
-  async getEnumKeyboard(enumObj: Record<string, string>) {
-    const keyboard = Object.values(enumObj).map(option => [{ text: option }]);
-    return Markup.keyboard(keyboard).oneTime();
-  }
-
-  async getOrCreateUser(ctx: SceneContext): Promise<User> {
-    const createUserDto = {
-      telegram_id: ctx.from.id,
-      chat_id: ctx.chat.id,
-      is_bot: ctx.from.is_bot,
-      language_code: ctx.from.language_code,
-    };
-    return this.usersService.getOrCreateUser(createUserDto);
-  }
-
-  getEnumKeyByValue(enumObj: { [s: string]: string }, value: string): string | null {
-    return Object.entries(enumObj).find(([, val]) => val === value)?.[0] ?? null;
-  }
-
-  async handleInvalidResponse(ctx: SceneContext) {
-    await ctx.reply(messages.invalidResponse);
-    this.timerService.setTimer(ctx);
-  }
-
-  async getImage(name: string, questionId: number, date: Date) {
-    const year = moment(date).year();
-    const week = moment(date).week();
-    const path = require('path');
-    const imagePath = path.join(__dirname, '..', '..', 'images', 'results', year.toString(), `${week}`, name);
-
-    if (fs.existsSync(imagePath)) {
-      return imagePath;
-    }
-
-    const generatedImages = await this.responsesService.generateImageForQuestion(questionId, true);
-    if (generatedImages) {
-      return generatedImages.mainImagePath;
-    }
-
-    throw new Error('Image generation failed');
+    const replyMarkup = await this.telegramUtils.getEnumKeyboard(AnswerOptions);
+    await this.bot.telegram.sendMessage(user.chat_id, message, replyMarkup);
   }
 }

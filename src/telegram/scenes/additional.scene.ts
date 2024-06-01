@@ -9,29 +9,32 @@ import { BinaryOptions } from "../../constants/binary-options.enum";
 import { AgeOptions } from "../../constants/age-options.enum";
 import { User } from "../../users/entities/user.entity";
 import { additionalQuestionsConfig } from "../../../config/additional-questions-config";
-import { TimerService } from "../timer.service";
-import { TelegramService } from "../telegram.service";
+import { TelegramUtils } from "../telegram.utils";
+import { SessionService } from "../session.service";
+import { UsersService } from "../../users/users.service";
+import { ResponsesService } from "../../surveys/responses.service";
 
 @Injectable()
 @Scene('additionalQuestionScene')
 export class AdditionalQuestionSceneCreator {
+  private readonly telegramUtils: TelegramUtils;
+
   constructor(
     private additionalQuestionResponseService: AdditionalQuestionResponseService,
-    private telegramService: TelegramService,
-    private readonly timerService: TimerService,
-  ) {}
+    private readonly sessionService: SessionService,
+    private readonly usersService: UsersService,
+    private readonly responsesService: ResponsesService,
+  ) {
+    this.telegramUtils = new TelegramUtils(usersService, responsesService, sessionService, additionalQuestionResponseService);
+  }
 
   @SceneEnter()
   async sceneEnter(@Ctx() ctx: SceneContext) {
-    const { user } = ctx.scene.state as { user: User };
-    for (const questionKey of Object.values(AdditionalQuestions)) {
-      const recentResponse = await this.additionalQuestionResponseService.findRecent(
-        user.id,
-        questionKey,
-        additionalQuestionsConfig[questionKey].expiresIn
-      );
+    const { user, additionalQuestion } = ctx.scene.state as { user: User, additionalQuestion: AdditionalQuestions };
+    if(!additionalQuestion) {
+      const questionKey = await this.telegramUtils.checkAvailableQuestions(user);
 
-      if (!recentResponse) {
+      if (questionKey !== false) {
         (ctx.scene.state as { additionalQuestion: AdditionalQuestions }).additionalQuestion = questionKey;
         await this.sendAdditionalQuestion(ctx, questionKey);
         return;
@@ -47,9 +50,9 @@ export class AdditionalQuestionSceneCreator {
   }
 
   async sendAdditionalQuestion(ctx: SceneContext, questionKey: AdditionalQuestions) {
-    const replyMarkup = await this.telegramService.getEnumKeyboard(additionalQuestionsConfig[questionKey].options);
+    const replyMarkup = await this.telegramUtils.getEnumKeyboard(additionalQuestionsConfig[questionKey].options);
     await ctx.reply(messages.additionalQuestionDescription + messages[questionKey], replyMarkup);
-    this.timerService.setTimer(ctx);
+    this.telegramUtils.setTimer(ctx);
   }
 
   private async saveAdditionalResponse(@Ctx() ctx: SceneContext) {
@@ -60,9 +63,9 @@ export class AdditionalQuestionSceneCreator {
       additionalQuestion: AdditionalQuestions;
     };
 
-    const answer = this.telegramService.getEnumKeyByValue({ ...BinaryOptions, ...AgeOptions }, text);
+    const answer = this.telegramUtils.getEnumKeyByValue({ ...BinaryOptions, ...AgeOptions }, text);
     if (!answer) {
-      await this.telegramService.handleInvalidResponse(ctx);
+      await this.telegramUtils.handleInvalidResponse(ctx);
       return;
     }
 
@@ -73,7 +76,7 @@ export class AdditionalQuestionSceneCreator {
     createAdditionalResponseDto.answer = answer;
 
     await this.additionalQuestionResponseService.create(createAdditionalResponseDto);
-    this.timerService.clearTimer(ctx);
+    this.telegramUtils.clearTimer(ctx);
     await ctx.reply(messages.thanksResponse);
     await ctx.scene.leave();
   }

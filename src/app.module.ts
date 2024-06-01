@@ -23,7 +23,6 @@ import { session } from 'telegraf';
 import { SessionModule } from './telegram/session.module';
 import { QuestionsModuleApi } from './api/questions/questions.module';
 import {SessionService} from "./telegram/session.service";
-import {TimerService} from "./telegram/timer.service";
 import {AdditionalQuestionSceneCreator} from "./telegram/scenes/additional.scene";
 
 @Module({
@@ -63,7 +62,6 @@ import {AdditionalQuestionSceneCreator} from "./telegram/scenes/additional.scene
     AdditionalQuestionResponseService,
     OrmConfig,
     SessionService,
-    TimerService
   ],
 })
 export class AppModule {}
