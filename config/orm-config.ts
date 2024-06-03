@@ -28,20 +28,16 @@ export class OrmConfig implements TypeOrmOptionsFactory {
   }
 
   createPostgresOptions() {
-    const {host, port, username, password, database, ssl_required} = this.configService.get('database');
-    const sslOptions = ssl_required ? {
-      ssl: {
-        rejectUnauthorized: false
-      }
-    } : {};
-
+    const { host, port, username, password, database, ssl_required } = this.configService.get('database');
     return {
       host,
       port,
       user: username,
       password,
       database,
-      ...sslOptions,
+      ssl: ssl_required ? {
+        rejectUnauthorized: false
+      } : undefined,
     };
   }
 }
