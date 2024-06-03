@@ -107,7 +107,7 @@ export class TelegramService {
     }
   }
 
-  @Cron('30 15 * * MON')
+  @Cron('00 15 * * MON')
   //@Cron('36 11 * * *')
   async handleCron() {
     const users = await this.usersService.findAll();
