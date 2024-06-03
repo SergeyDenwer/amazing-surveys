@@ -49,9 +49,12 @@ export class TelegramUtils {
     const year = moment(date).year();
     const week = moment(date).week();
     const path = require('path');
-    const imagePath = path.join(__dirname, '..', '..', 'images', 'results', year.toString(), `${week}`, name);
+    const imagePath = path.join(__dirname, '..', '..', '..', '..', 'images', 'results', year.toString(), `${week}`, name);
+
+    console.log(imagePath)
 
     if (fs.existsSync(imagePath)) {
+      console.log('Return existing image')
       return imagePath;
     }
 
