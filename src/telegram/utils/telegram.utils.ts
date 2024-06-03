@@ -85,7 +85,7 @@ export class TelegramUtils {
       await ctx.scene.leave();
       await this.sessionService.resetSession(String(ctx.chat.id));
       activeTimers.delete(ctx.chat.id);
-    }, 30000);
+    }, 600000);
     activeTimers.set(ctx.chat.id, timeoutId);
   }
 
