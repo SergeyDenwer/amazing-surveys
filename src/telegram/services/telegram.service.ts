@@ -112,11 +112,20 @@ export class TelegramService {
   async handleCron() {
     const users = await this.usersService.findAll();
     for (const user of users) {
-      const chatId = user.chat_id;
-      let sessionData = await this.sessionService.getSession(chatId) || {};
-      sessionData.awaitingResponse = true;
-      await this.sessionService.setSession(chatId, sessionData);
-      await this.sendQuestion(user, messages.cronMessage);
+      try {
+        const chatId = user.chat_id;
+        let sessionData = await this.sessionService.getSession(chatId) || {};
+        sessionData.awaitingResponse = true;
+        await this.sessionService.setSession(chatId, sessionData);
+        await this.sendQuestion(user, messages.cronMessage);
+      } catch (error) {
+        if (error.response && error.response.statusCode === 403) {
+          await this.usersService.update(user, { bot_was_blocked: true });
+          console.error(`User ${user.chat_id} has blocked the bot.`);
+        } else {
+          console.error(`Failed to send message to user ${user.chat_id}:`, error);
+        }
+      }
     }
   }
 

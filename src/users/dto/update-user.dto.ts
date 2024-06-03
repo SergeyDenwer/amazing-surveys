@@ -1,7 +1,7 @@
-// src/users/dto/create-user.dto.ts
-import {IsInt} from 'class-validator';
+import { IsBoolean, IsOptional } from 'class-validator';
 
 export class UpdateUserDto {
-  @IsInt()
-  chat_id: number;
+  @IsBoolean()
+  @IsOptional()
+  bot_was_blocked?: boolean;
 }

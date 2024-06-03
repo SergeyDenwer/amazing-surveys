@@ -23,4 +23,7 @@ export class User {
 
   @Column()
   language_code: string;
+
+  @Column({ default: false })
+  bot_was_blocked: boolean;
 }
