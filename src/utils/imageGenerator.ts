@@ -308,7 +308,7 @@ export class GenerateImage {
     console.log('Generating main image...');
     console.time('Image main generation time');
 
-    const canvasWidth = 868;
+    const canvasWidth = 800;
     const paddingLeftRight = 24;
     const paddingTopBottom = 96;
     const spacingDateText = 60;

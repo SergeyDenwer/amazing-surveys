@@ -17,7 +17,7 @@ export class OrmConfig implements TypeOrmOptionsFactory {
       database,
       entities: ["dist/**/*.entity{.ts,.js}"],
       synchronize: synchronize,
-      logging: true,
+      logging: false,
       ssl: ssl_required,
       extra: ssl_required ? {
         ssl: {
@@ -25,5 +25,10 @@ export class OrmConfig implements TypeOrmOptionsFactory {
         }
       } : {}
     };
+  }
+
+  createPostgresOptions() {
+    const { host, port, username, password, database } = this.configService.get('database');
+    return { host, port, user: username, password, database };
   }
 }

@@ -1,4 +1,3 @@
-// feedback.scene.ts
 import { Injectable } from '@nestjs/common';
 import { FeedbackService } from '../../feedback/feedback.service';
 import { messages } from "../../messages";
@@ -7,22 +6,34 @@ import {SceneContext} from "telegraf/scenes";
 import {Ctx, On, Scene, SceneEnter} from "nestjs-telegraf";
 import {CreateUserDto} from "../../users/dto/create-user.dto";
 import {UsersService} from "../../users/users.service";
+import { TelegramUtils } from "../utils/telegram.utils";
+import {ResponsesService} from "../../surveys/responses.service";
+import {SessionService} from "../services/session.service";
+import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
 
 @Injectable()
 @Scene('feedbackScene')
 export class FeedbackSceneCreator {
+  private readonly telegramUtils: TelegramUtils;
   constructor(
     private readonly feedbackService: FeedbackService,
     private usersService: UsersService,
-  ) {}
-  @SceneEnter()
-  async sceneEnter(@Ctx() ctx: SceneContext){
-    await ctx.reply(messages.feedbackTitle)
+    private responsesService: ResponsesService,
+    private readonly sessionService: SessionService,
+    private additionalQuestionResponseService: AdditionalQuestionResponseService
+  ) {
+    this.telegramUtils = new TelegramUtils(usersService, responsesService, sessionService, additionalQuestionResponseService);
   }
 
+  @SceneEnter()
+  async sceneEnter(@Ctx() ctx: SceneContext){
+    await ctx.reply(messages.feedbackTitle);
+    this.telegramUtils.setTimer(ctx);
+  }
 
   @On('text')
   async handleText(@Ctx() ctx: SceneContext) {
+    this.telegramUtils.clearTimer(ctx);
 
     const { text } = ctx;
     const createUserDto: CreateUserDto = {

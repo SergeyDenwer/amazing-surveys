@@ -1,170 +1,31 @@
-// go.scene.ts
 import { Injectable } from '@nestjs/common';
 import { messages } from "../../messages";
-import {SceneContext} from "telegraf/scenes";
-import {Ctx, On, Scene, SceneEnter} from "nestjs-telegraf";
-import {CreateUserDto} from "../../users/dto/create-user.dto";
-import {UsersService} from "../../users/users.service";
-import {QuestionsService} from "../../surveys/questions.service";
-import {ResponsesService} from "../../surveys/responses.service";
-import {AnswerOptions} from "../../constants/answer-options.enum";
-import {CreateResponseDto} from "../../surveys/dto/create-response.dto";
-import {TelegramService} from "../telegram.service";
-import {AdditionalQuestions} from "../../constants/additional-questions.enum";
+import { SceneContext } from "telegraf/scenes";
+import { Ctx, On, Scene, SceneEnter } from "nestjs-telegraf";
+import { QuestionsService } from "../../surveys/questions.service";
+import { ResponsesService } from "../../surveys/responses.service";
+import { AnswerOptions } from "../../constants/answer-options.enum";
+import { CreateResponseDto } from "../../surveys/dto/create-response.dto";
+import { TelegramUtils } from "../utils/telegram.utils";
+import { SessionService } from "../services/session.service";
+import { UsersService } from "../../users/users.service";
+import {TelegramService} from "../services/telegram.service";
 import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
-import {CreateAdditionalQuestionResponseDto} from "../../surveys/dto/create-additional-question-response.dto";
-import {BinaryOptions} from "../../constants/binary-options.enum";
-import {AgeOptions} from "../../constants/age-options.enum";
-import {User} from "../../users/entities/user.entity";
-import {additionalQuestionsConfig} from "../../../config/additional-questions-config";
-import * as fs from "node:fs";
-import * as moment from 'moment';
-
-interface CustomSceneState {
-  questionIndex?: string;
-  additionalQuestion?: AdditionalQuestions;
-  responseId?: number;
-  user?: User;
-}
 
 @Injectable()
 @Scene('goScene')
 export class GoSceneCreator {
+  private readonly telegramUtils: TelegramUtils;
+
   constructor(
     private questionsService: QuestionsService,
     private responsesService: ResponsesService,
-    private usersService: UsersService,
+    private readonly sessionService: SessionService,
+    private readonly usersService: UsersService,
     private telegramService: TelegramService,
     private additionalQuestionResponseService: AdditionalQuestionResponseService,
-  ) {}
-
-  private async saveResponse(@Ctx() ctx: SceneContext) {
-
-    const { text } = ctx;
-    const user = await this.getOrCreateUser(ctx);
-    (ctx.scene.state as CustomSceneState).user = user;
-    const answerOptionKey = this.getEnumKeyByValue(AnswerOptions, text);
-
-    if (answerOptionKey) {
-      const latestQuestion = await this.questionsService.getLatestQuestion();
-      const previousQuestion = await this.questionsService.getPreviousQuestion();
-      if (latestQuestion) {
-        const alreadyResponded = await this.responsesService.hasUserAlreadyResponded(user.id, latestQuestion.id);
-        if (alreadyResponded) {
-          await ctx.reply(messages.alreadyResponded);
-          await ctx.scene.leave();
-          return;
-        }
-
-        const createResponseDto = new CreateResponseDto();
-        createResponseDto.user_id = user.id;
-        createResponseDto.question_id = latestQuestion.id;
-        createResponseDto.choice = answerOptionKey;
-
-        const response = await this.responsesService.create(createResponseDto);
-        (ctx.scene.state as CustomSceneState).responseId = response.id;
-
-        if (previousQuestion) {
-          const imagePath = await this.getImage('result.png', previousQuestion.id, previousQuestion.created_at);
-          await ctx.replyWithPhoto({ source: imagePath }, {
-            caption: messages.thanksResponse + ' ' + messages.thanksResponseDescription
-          });
-        } else {
-          await ctx.reply(messages.noPreviousQuestionResults);
-          await ctx.scene.leave();
-        }
-
-        (ctx.scene.state as CustomSceneState).questionIndex = 'additional';
-        await this.additionalQuestion(ctx)
-      } else {
-        await ctx.reply(messages.notExistQuestion);
-        await ctx.scene.leave();
-      }
-    } else {
-      await ctx.scene.leave();
-    }
-  }
-
-  private async additionalQuestion(@Ctx() ctx: SceneContext) {
-    const user = (ctx.scene.state as CustomSceneState).user || await this.getOrCreateUser(ctx);
-
-    for (const questionKey of Object.values(AdditionalQuestions)) {
-      const recentResponse = await this.additionalQuestionResponseService.findRecent(
-        user.id,
-        questionKey,
-        additionalQuestionsConfig[questionKey].expiresIn
-      );
-
-      if (!recentResponse) {
-        (ctx.scene.state as CustomSceneState).additionalQuestion = questionKey;
-        const replyMarkup = await this.telegramService.getEnumKeyboard(additionalQuestionsConfig[questionKey].options);
-        await ctx.reply(messages.additionalQuestionDescription + messages[questionKey], replyMarkup);
-        return;
-      }
-    }
-
-    await ctx.scene.leave();
-  }
-
-  private async saveAdditionalResponse(@Ctx() ctx: SceneContext) {
-    const { text } = ctx;
-    const user = (ctx.scene.state as CustomSceneState).user || await this.getOrCreateUser(ctx);
-    const responseId = (ctx.scene.state as CustomSceneState).responseId;
-
-    const createAdditionalResponseDto = new CreateAdditionalQuestionResponseDto();
-    createAdditionalResponseDto.user_id = user.id;
-    if (responseId) {
-      createAdditionalResponseDto.response_id = responseId;
-    }
-
-    const options = { ...BinaryOptions, ...AgeOptions };
-    createAdditionalResponseDto.question = (ctx.scene.state as CustomSceneState).additionalQuestion;
-    createAdditionalResponseDto.answer = this.getEnumKeyByValue(options, text);
-
-    if (createAdditionalResponseDto.answer) {
-      await this.additionalQuestionResponseService.create(createAdditionalResponseDto);
-      await ctx.reply(messages.thanksResponse);
-    }
-
-    await ctx.scene.leave();
-  }
-
-  private async getImage(name: string, questionId: number, date: Date) {
-    const year = moment(date).year();
-    const week = moment(date).week();
-    const path = require('path');
-    const imagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, name);
-
-    if (fs.existsSync(imagePath)) {
-      return imagePath;
-    }
-
-    const generatedImages = await this.responsesService.generateImageForQuestion(questionId, true);
-    if (generatedImages) {
-      return generatedImages.mainImagePath;
-    }
-
-    throw new Error('Image generation failed');
-  }
-
-  private getEnumKeyByValue(enumObj: { [s: string]: string }, value: string): string | null {
-    const entries = Object.entries(enumObj);
-    for (const [key, val] of entries) {
-      if (val === value) {
-        return key;
-      }
-    }
-    return null;
-  }
-
-  private async getOrCreateUser(@Ctx() ctx: SceneContext): Promise<User> {
-    const createUserDto: CreateUserDto = {
-      telegram_id: ctx.from.id,
-      chat_id: ctx.chat.id,
-      is_bot: ctx.from.is_bot,
-      language_code: ctx.from.language_code
-    };
-    return this.usersService.getOrCreateUser(createUserDto);
+  ) {
+    this.telegramUtils = new TelegramUtils(usersService, responsesService, sessionService, additionalQuestionResponseService);
   }
 
   @SceneEnter()
@@ -172,25 +33,59 @@ export class GoSceneCreator {
     const fromCron = (ctx.scene.state as any).fromCron as boolean;
     const message = (ctx.scene.state as any).message as string;
 
-    (ctx.scene.state as CustomSceneState).questionIndex = 'main';
+    const createUserDto = { telegram_id: ctx.from.id, chat_id: ctx.chat.id};
+    const user = await this.usersService.getOrCreateUser(createUserDto);
+
+    (ctx.scene.state as any).user = user;
 
     if (fromCron && message) {
       await this.saveResponse(ctx);
     } else {
-      const chatId = ctx.chat.id;
-      await this.telegramService.sendQuestion(chatId, null, ctx);
+      await this.telegramService.sendQuestion(user, null, ctx);
     }
   }
 
   @On('text')
   async handleText(@Ctx() ctx: SceneContext) {
-    const stage = (ctx.scene.state as CustomSceneState).questionIndex;
-    if(stage === 'main'){
-      await this.saveResponse(ctx)
-    } else if(stage === 'additional'){
-      await this.saveAdditionalResponse(ctx);
-    } else {
-      await ctx.scene.leave(); return;
+    this.telegramUtils.clearTimer(ctx);
+    await this.saveResponse(ctx);
+  }
+
+  private async saveResponse(@Ctx() ctx: SceneContext) {
+    const { text } = ctx;
+
+    const answerOptionKey = this.telegramUtils.getEnumKeyByValue(AnswerOptions, text);
+    if (!answerOptionKey) {
+      await this.telegramUtils.handleInvalidResponse(ctx);
+      this.telegramUtils.setTimer(ctx);
+      return;
     }
+
+    const { user } = ctx.scene.state as { user: any };
+    const question = await this.questionsService.getLatestQuestion();
+    const response = await this.createResponse(user.id, question.id, answerOptionKey);
+    delete (ctx.session as any).mainQuestion;
+    const previousQuestion = await this.questionsService.getPreviousQuestion();
+    if (previousQuestion) {
+      const imagePath = await this.telegramUtils.getImage('result.png', previousQuestion.id, previousQuestion.created_at);
+      await ctx.replyWithPhoto({ source: imagePath }, {
+        caption: messages.thanksResponse + ' ' + messages.thanksResponseDescription,
+      });
+    } else {
+      await ctx.reply(messages.noPreviousQuestionResults);
+    }
+
+    await ctx.scene.enter('additionalQuestionScene', {
+      user: user,
+      responseId: response.id,
+    });
+  }
+
+  private async createResponse(userId: number, questionId: number, choice: string) {
+    const createResponseDto = new CreateResponseDto();
+    createResponseDto.user_id = userId;
+    createResponseDto.question_id = questionId;
+    createResponseDto.choice = choice;
+    return this.responsesService.create(createResponseDto);
   }
 }
