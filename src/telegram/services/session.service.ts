@@ -7,9 +7,9 @@ export class SessionService {
     @Inject('SESSION_STORE') private readonly store: SessionStore<any>,
   ) {}
 
-  async resetSession(id: string): Promise<void> {
-    const key = `${id}:${id}`; // Формат ключа для удаления
-    const emptySession = { __scenes: {} }; // Пустая сессия
+  async resetSession(id: number): Promise<void> {
+    const key = `${id}:${id}`;
+    const emptySession = { __scenes: {} };
     try {
       await this.store.set(key, emptySession);
     } catch (err) {

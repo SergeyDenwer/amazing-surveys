@@ -83,7 +83,7 @@ export class TelegramUtils {
     const timeoutId = setTimeout(async () => {
       await ctx.reply(messages.timeoutMessage, Markup.removeKeyboard());
       await ctx.scene.leave();
-      await this.sessionService.resetSession(String(ctx.chat.id));
+      await this.sessionService.resetSession(ctx.chat.id);
       activeTimers.delete(ctx.chat.id);
     }, 600000);
     activeTimers.set(ctx.chat.id, timeoutId);
