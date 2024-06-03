@@ -6,9 +6,9 @@ import {SceneContext} from "telegraf/scenes";
 import {Ctx, On, Scene, SceneEnter} from "nestjs-telegraf";
 import {CreateUserDto} from "../../users/dto/create-user.dto";
 import {UsersService} from "../../users/users.service";
-import { TelegramUtils } from "../telegram.utils";
+import { TelegramUtils } from "../utils/telegram.utils";
 import {ResponsesService} from "../../surveys/responses.service";
-import {SessionService} from "../session.service";
+import {SessionService} from "../services/session.service";
 import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
 
 @Injectable()

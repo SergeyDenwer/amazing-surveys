@@ -6,10 +6,10 @@ import { QuestionsService } from "../../surveys/questions.service";
 import { ResponsesService } from "../../surveys/responses.service";
 import { AnswerOptions } from "../../constants/answer-options.enum";
 import { CreateResponseDto } from "../../surveys/dto/create-response.dto";
-import { TelegramUtils } from "../telegram.utils";
-import { SessionService } from "../session.service";
+import { TelegramUtils } from "../utils/telegram.utils";
+import { SessionService } from "../services/session.service";
 import { UsersService } from "../../users/users.service";
-import {TelegramService} from "../telegram.service";
+import {TelegramService} from "../services/telegram.service";
 import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
 
 @Injectable()
@@ -36,6 +36,8 @@ export class GoSceneCreator {
     const createUserDto = { telegram_id: ctx.from.id, chat_id: ctx.chat.id};
     const user = await this.usersService.getOrCreateUser(createUserDto);
 
+    (ctx.scene.state as any).user = user;
+
     if (fromCron && message) {
       await this.saveResponse(ctx);
     } else {
@@ -51,22 +53,18 @@ export class GoSceneCreator {
 
   private async saveResponse(@Ctx() ctx: SceneContext) {
     const { text } = ctx;
-    const user = await this.telegramUtils.getOrCreateUser(ctx);
 
     const answerOptionKey = this.telegramUtils.getEnumKeyByValue(AnswerOptions, text);
     if (!answerOptionKey) {
       await this.telegramUtils.handleInvalidResponse(ctx);
+      this.telegramUtils.setTimer(ctx);
       return;
     }
 
-    const { mainQuestion } = ctx.scene.state as { mainQuestion: any };
-    if (!mainQuestion) {
-      await ctx.reply(messages.lostQuestion);
-      await ctx.scene.leave();
-      return;
-    }
-
-    const response = await this.createResponse(user.id, mainQuestion.id, answerOptionKey);
+    const { user } = ctx.scene.state as { user: any };
+    const question = await this.questionsService.getLatestQuestion();
+    const response = await this.createResponse(user.id, question.id, answerOptionKey);
+    delete (ctx.session as any).mainQuestion;
     const previousQuestion = await this.questionsService.getPreviousQuestion();
     if (previousQuestion) {
       const imagePath = await this.telegramUtils.getImage('result.png', previousQuestion.id, previousQuestion.created_at);

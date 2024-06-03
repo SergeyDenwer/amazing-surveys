@@ -9,8 +9,8 @@ import { BinaryOptions } from "../../constants/binary-options.enum";
 import { AgeOptions } from "../../constants/age-options.enum";
 import { User } from "../../users/entities/user.entity";
 import { additionalQuestionsConfig } from "../../../config/additional-questions-config";
-import { TelegramUtils } from "../telegram.utils";
-import { SessionService } from "../session.service";
+import { TelegramUtils } from "../utils/telegram.utils";
+import { SessionService } from "../services/session.service";
 import { UsersService } from "../../users/users.service";
 import { ResponsesService } from "../../surveys/responses.service";
 

@@ -2,16 +2,16 @@ import { Injectable } from "@nestjs/common";
 import { Update, Ctx, Start, Help, Command, InjectBot, On } from 'nestjs-telegraf';
 import { Context, Telegraf } from 'telegraf';
 import { Cron } from "@nestjs/schedule";
-import { messages } from "../messages";
+import { messages } from "../../messages";
 import { SceneContext } from "telegraf/scenes";
-import { UsersService } from "../users/users.service";
-import { QuestionsService } from "../surveys/questions.service";
-import { ResponsesService } from "../surveys/responses.service";
+import { UsersService } from "../../users/users.service";
+import { QuestionsService } from "../../surveys/questions.service";
+import { ResponsesService } from "../../surveys/responses.service";
 import { SessionService } from './session.service';
-import { TelegramUtils } from "./telegram.utils";
-import {AnswerOptions} from "../constants/answer-options.enum";
-import {AdditionalQuestionResponseService} from "../surveys/additional-question-response.service";
-import {User} from "../users/entities/user.entity";
+import { TelegramUtils } from "../utils/telegram.utils";
+import {AnswerOptions} from "../../constants/answer-options.enum";
+import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
+import {User} from "../../users/entities/user.entity";
 
 @Update()
 @Injectable()
@@ -93,9 +93,11 @@ export class TelegramService {
 
     if (sessionData && sessionData.awaitingResponse) {
       if (isValidAnswer) {
-        const newSessionData = { ...sessionData, awaitingResponse: false };
-        await this.sessionService.setSession(chat.id, newSessionData);
-        ctx.session = newSessionData;
+
+        const { awaitingResponse, ...restSessionData } = sessionData;
+        await this.sessionService.setSession(chat.id, restSessionData);
+        ctx.session = restSessionData;
+
         await ctx.scene.enter('goScene', { fromCron: true, message: text });
       } else {
         await ctx.reply(messages.invalidResponse);
@@ -106,7 +108,7 @@ export class TelegramService {
   }
 
   //@Cron('45 12 * * MON')
-  @Cron('13 20 * * *')
+  @Cron('36 11 * * *')
   async handleCron() {
     const users = await this.usersService.findAll();
     for (const user of users) {
@@ -129,6 +131,9 @@ export class TelegramService {
 
     const hasResponded = await this.responsesService.hasUserAlreadyResponded(user.id, question.id);
     if (hasResponded) {
+      if(!ctx){
+        return;
+      }
       const additionalQuestionKey = await this.telegramUtils.checkAvailableQuestions(user)
       if(additionalQuestionKey) {
         await ctx.scene.enter('additionalQuestionScene', {
@@ -139,15 +144,12 @@ export class TelegramService {
         return;
       }
       await this.bot.telegram.sendMessage(user.chat_id, messages.alreadyResponded);
-      if(ctx) await ctx.scene.leave();
+      await ctx.scene.leave();
       return;
     }
 
-    let sessionData = await this.sessionService.getSession(user.chat_id) || {};
-    sessionData.mainQuestion = question;
-    await this.sessionService.setSession(user.chat_id, sessionData);
     if (ctx) {
-      (ctx.scene.state as any).mainQuestion = question;
+      this.telegramUtils.setTimer(ctx);
     }
 
     const message = (cronMessage || '') + question.question + '\n\n' + messages.question;

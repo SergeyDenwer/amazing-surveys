@@ -1,15 +1,15 @@
 import { Markup } from 'telegraf';
 import * as moment from 'moment';
 import * as fs from "node:fs";
-import { messages } from "../messages";
+import { messages } from "../../messages";
 import { SceneContext } from "telegraf/scenes";
-import { UsersService } from "../users/users.service";
-import { ResponsesService } from "../surveys/responses.service";
-import { SessionService } from './session.service';
-import {User} from "../users/entities/user.entity";
-import {AdditionalQuestions} from "../constants/additional-questions.enum";
-import {additionalQuestionsConfig} from "../../config/additional-questions-config";
-import {AdditionalQuestionResponseService} from "../surveys/additional-question-response.service";
+import { UsersService } from "../../users/users.service";
+import { ResponsesService } from "../../surveys/responses.service";
+import { SessionService } from '../services/session.service';
+import {User} from "../../users/entities/user.entity";
+import {AdditionalQuestions} from "../../constants/additional-questions.enum";
+import {additionalQuestionsConfig} from "../../../config/additional-questions-config";
+import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
 
 const activeTimers: Map<number, NodeJS.Timeout> = new Map();
 

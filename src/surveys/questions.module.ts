@@ -7,6 +7,6 @@ import { Question } from './entities/question.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([Question])],
   providers: [QuestionsService],
-  exports: [QuestionsService, TypeOrmModule.forFeature([Question])] // Экспортируйте TypeOrmModule, чтобы репозитории были доступны
+  exports: [QuestionsService, TypeOrmModule.forFeature([Question])]
 })
 export class QuestionsModule {}
