@@ -107,11 +107,13 @@ export class TelegramService {
     }
   }
 
-  @Cron('30 12 * * MON')
+  @Cron('30 15 * * MON')
   //@Cron('36 11 * * *')
   async handleCron() {
     const users = await this.usersService.findAll();
     for (const user of users) {
+      if (user.bot_was_blocked)
+        continue;
       try {
         const chatId = user.chat_id;
         let sessionData = await this.sessionService.getSession(chatId) || {};
