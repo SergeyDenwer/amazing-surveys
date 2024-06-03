@@ -121,8 +121,9 @@ export class TelegramService {
         await this.sessionService.setSession(chatId, sessionData);
         await this.sendQuestion(user, messages.cronMessage);
       } catch (error) {
-        if (error.response && error.response.statusCode === 403) {
+        if (error.response && error.response.error_code === 403) {
           await this.usersService.update(user, { bot_was_blocked: true });
+          await this.sessionService.resetSession(user.chat_id)
           console.error(`User ${user.chat_id} has blocked the bot.`);
         } else {
           console.error(`Failed to send message to user ${user.chat_id}:`, error);
