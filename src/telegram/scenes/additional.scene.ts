@@ -17,16 +17,13 @@ import { ResponsesService } from "../../surveys/responses.service";
 @Injectable()
 @Scene('additionalQuestionScene')
 export class AdditionalQuestionSceneCreator {
-  private readonly telegramUtils: TelegramUtils;
-
   constructor(
     private additionalQuestionResponseService: AdditionalQuestionResponseService,
     private readonly sessionService: SessionService,
     private readonly usersService: UsersService,
     private readonly responsesService: ResponsesService,
-  ) {
-    this.telegramUtils = new TelegramUtils(usersService, responsesService, sessionService, additionalQuestionResponseService);
-  }
+    private readonly telegramUtils: TelegramUtils,
+  ) {}
 
   @SceneEnter()
   async sceneEnter(@Ctx() ctx: SceneContext) {
@@ -37,9 +34,17 @@ export class AdditionalQuestionSceneCreator {
       if (questionKey !== false) {
         (ctx.scene.state as { additionalQuestion: AdditionalQuestions }).additionalQuestion = questionKey;
         await this.sendAdditionalQuestion(ctx, questionKey);
+        await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_additional_question', {
+          'have_additional_questions' : true,
+          'additional_question' : questionKey
+        });
         return;
       }
     }
+
+    await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_additional_question', {
+      'have_additional_questions' : false
+    });
 
     await ctx.scene.leave();
   }
@@ -66,6 +71,10 @@ export class AdditionalQuestionSceneCreator {
     const answer = this.telegramUtils.getEnumKeyByValue({ ...BinaryOptions, ...AgeOptions }, text);
     if (!answer) {
       await this.telegramUtils.handleInvalidResponse(ctx);
+      await this.telegramUtils.sendToGoogleAnalytics(ctx.chat.id, 'additional_question_save_response', {
+        'isValidAnswer' : false,
+        'answer' : text
+      });
       return;
     }
 
@@ -79,5 +88,9 @@ export class AdditionalQuestionSceneCreator {
     this.telegramUtils.clearTimer(ctx);
     await ctx.reply(messages.thanksResponse);
     await ctx.scene.leave();
+    await this.telegramUtils.sendToGoogleAnalytics(ctx.chat.id, 'additional_question_save_response', {
+      'isValidAnswer' : true,
+      'answer' : text
+    });
   }
 }

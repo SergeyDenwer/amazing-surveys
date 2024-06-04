@@ -14,16 +14,14 @@ import {AdditionalQuestionResponseService} from "../../surveys/additional-questi
 @Injectable()
 @Scene('feedbackScene')
 export class FeedbackSceneCreator {
-  private readonly telegramUtils: TelegramUtils;
   constructor(
     private readonly feedbackService: FeedbackService,
     private usersService: UsersService,
     private responsesService: ResponsesService,
     private readonly sessionService: SessionService,
-    private additionalQuestionResponseService: AdditionalQuestionResponseService
-  ) {
-    this.telegramUtils = new TelegramUtils(usersService, responsesService, sessionService, additionalQuestionResponseService);
-  }
+    private additionalQuestionResponseService: AdditionalQuestionResponseService,
+    private readonly telegramUtils: TelegramUtils,
+  ) {}
 
   @SceneEnter()
   async sceneEnter(@Ctx() ctx: SceneContext){
@@ -55,7 +53,7 @@ export class FeedbackSceneCreator {
 
     await this.feedbackService.create(createFeedbackDto);
     await ctx.reply(messages.feedbackResponse);
-
     await ctx.scene.leave();
+    await this.telegramUtils.sendToGoogleAnalytics(ctx.chat.id, 'save_feedback');
   }
 }
