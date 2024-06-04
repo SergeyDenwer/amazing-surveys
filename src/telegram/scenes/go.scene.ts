@@ -15,8 +15,6 @@ import {AdditionalQuestionResponseService} from "../../surveys/additional-questi
 @Injectable()
 @Scene('goScene')
 export class GoSceneCreator {
-  private readonly telegramUtils: TelegramUtils;
-
   constructor(
     private questionsService: QuestionsService,
     private responsesService: ResponsesService,
@@ -24,9 +22,8 @@ export class GoSceneCreator {
     private readonly usersService: UsersService,
     private telegramService: TelegramService,
     private additionalQuestionResponseService: AdditionalQuestionResponseService,
-  ) {
-    this.telegramUtils = new TelegramUtils(usersService, responsesService, sessionService, additionalQuestionResponseService);
-  }
+    private readonly telegramUtils: TelegramUtils,
+  ) {}
 
   @SceneEnter()
   async sceneEnter(@Ctx() ctx: SceneContext) {
@@ -58,12 +55,19 @@ export class GoSceneCreator {
     if (!answerOptionKey) {
       await this.telegramUtils.handleInvalidResponse(ctx);
       this.telegramUtils.setTimer(ctx);
+      await this.telegramUtils.sendToGoogleAnalytics(ctx.chat.id, 'go_scene_save_response', {
+        'isValidAnswer' : false,
+      });
       return;
     }
 
     const { user } = ctx.scene.state as { user: any };
     const question = await this.questionsService.getLatestQuestion();
     const response = await this.createResponse(user.id, question.id, answerOptionKey);
+    await this.telegramUtils.sendToGoogleAnalytics(ctx.chat.id, 'go_scene_save_response', {
+      'isValidAnswer' : true,
+      'answer' : text
+    });
     delete (ctx.session as any).mainQuestion;
     const previousQuestion = await this.questionsService.getPreviousQuestion();
     if (previousQuestion) {
@@ -78,6 +82,9 @@ export class GoSceneCreator {
     await ctx.scene.enter('additionalQuestionScene', {
       user: user,
       responseId: response.id,
+    });
+    await this.telegramUtils.sendToGoogleAnalytics(ctx.chat.id, 'set_additional_question_scene', {
+      'from_go_scene' : true
     });
   }
 

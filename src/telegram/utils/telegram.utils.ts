@@ -10,16 +10,27 @@ import {User} from "../../users/entities/user.entity";
 import {AdditionalQuestions} from "../../constants/additional-questions.enum";
 import {additionalQuestionsConfig} from "../../../config/additional-questions-config";
 import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
+import axios from "axios";
+import { ConfigService } from '@nestjs/config';
+import {Injectable} from "@nestjs/common";
 
 const activeTimers: Map<number, NodeJS.Timeout> = new Map();
-
+@Injectable()
 export class TelegramUtils {
+  private readonly isDevEnvironment: boolean;
+  private readonly gaMeasurementId: string;
+  private readonly gaApiSecret: string;
   constructor(
     private readonly usersService: UsersService,
     private readonly responsesService: ResponsesService,
     private readonly sessionService: SessionService,
     private additionalQuestionResponseService: AdditionalQuestionResponseService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.isDevEnvironment = this.configService.get<string>('environment') === 'dev';
+    this.gaMeasurementId = this.configService.get<string>('googleAnalytics.measurementId');
+    this.gaApiSecret = this.configService.get<string>('googleAnalytics.apiSecret');
+  }
 
   async getEnumKeyboard(enumObj: Record<string, string>) {
     const keyboard = Object.values(enumObj).map(option => [{ text: option }]);
@@ -86,8 +97,10 @@ export class TelegramUtils {
       await ctx.scene.leave();
       await this.sessionService.resetSession(ctx.chat.id);
       activeTimers.delete(ctx.chat.id);
-    }, 600000);
+      await this.sendToGoogleAnalytics(ctx.chat.id, 'timeout');
+    }, this.isDevEnvironment ? 30000 : 600000);
     activeTimers.set(ctx.chat.id, timeoutId);
+    this.sendToGoogleAnalytics(ctx.chat.id, 'set_timer');
   }
 
   clearTimer(ctx: SceneContext) {
@@ -95,6 +108,33 @@ export class TelegramUtils {
     if (timeoutId) {
       clearTimeout(timeoutId);
       activeTimers.delete(ctx.chat.id);
+      this.sendToGoogleAnalytics(ctx.chat.id, 'clear_timer');
     }
   }
+
+  async sendToGoogleAnalytics(userId: number, eventName: string, eventParams: any = {}) {
+    const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
+
+    const payload = {
+      client_id: userId.toString(),
+      events: [
+        {
+          name: eventName,
+          params: {
+            ...eventParams,
+            user_id: userId.toString(),
+            debug_mode: this.isDevEnvironment ? 'true' : 'false'
+          }
+        }
+      ]
+    };
+
+    try {
+      await axios.post(`${GA_ENDPOINT}?measurement_id=${this.gaMeasurementId}&api_secret=${this.gaApiSecret}`, payload);
+      console.log(userId.toString(), eventName, eventParams, this.isDevEnvironment ? 'development' : 'production');
+    } catch (error) {
+      console.error('Error sending data to Google Analytics:', error);
+    }
+  }
+
 }

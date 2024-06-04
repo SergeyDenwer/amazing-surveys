@@ -16,8 +16,6 @@ import {User} from "../../users/entities/user.entity";
 @Update()
 @Injectable()
 export class TelegramService {
-  private readonly telegramUtils: TelegramUtils;
-
   constructor(
     @InjectBot() private readonly bot: Telegraf<Context>,
     private readonly usersService: UsersService,
@@ -25,28 +23,31 @@ export class TelegramService {
     private responsesService: ResponsesService,
     private readonly sessionService: SessionService,
     private additionalQuestionResponseService: AdditionalQuestionResponseService,
-  ) {
-    this.telegramUtils = new TelegramUtils(usersService, responsesService, sessionService, additionalQuestionResponseService);
-  }
+    private readonly telegramUtils: TelegramUtils,
+  ) {}
 
   @Start()
   async start(@Ctx() ctx: Context) {
+    await this.telegramUtils.sendToGoogleAnalytics(ctx.from.id, 'start_command');
     await ctx.reply(messages.startMessage);
   }
 
   @Help()
   async help(@Ctx() ctx: Context) {
+    await this.telegramUtils.sendToGoogleAnalytics(ctx.from.id, 'help_command');
     await ctx.reply(messages.helpResponse);
   }
 
   @Command('go')
   async getQuestion(@Ctx() ctx: SceneContext) {
-    await ctx.scene.enter('goScene')
+    await this.telegramUtils.sendToGoogleAnalytics(ctx.from.id, 'go_command');
+    await ctx.scene.enter('goScene');
     return;
   }
 
   @Command('feedback')
   async feedbackCommand(@Ctx() ctx: SceneContext) {
+    await this.telegramUtils.sendToGoogleAnalytics(ctx.from.id, 'feedback_command');
     await ctx.scene.enter('feedbackScene')
     return
   }
@@ -99,11 +100,25 @@ export class TelegramService {
         ctx.session = restSessionData;
 
         await ctx.scene.enter('goScene', { fromCron: true, message: text });
+        await this.telegramUtils.sendToGoogleAnalytics(chat.id, 'telegram_service_text', {
+          'fromCron' : true,
+          'isValidAnswer' : true,
+          'answer' : text
+        });
       } else {
         await ctx.reply(messages.invalidResponse);
+        await this.telegramUtils.sendToGoogleAnalytics(chat.id, 'telegram_service_text', {
+          'fromCron' : true,
+          'isValidAnswer' : false,
+          'answer' : text
+        });
       }
     } else {
       await ctx.reply(messages.unknownCommand);
+      await this.telegramUtils.sendToGoogleAnalytics(chat.id, 'telegram_service_text', {
+        'unknownCommand' : true,
+        'answer' : text
+      });
     }
   }
 
@@ -146,12 +161,18 @@ export class TelegramService {
       if(!ctx){
         return;
       }
+      await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_question', {
+        'hasResponded' : true
+      });
       const additionalQuestionKey = await this.telegramUtils.checkAvailableQuestions(user)
       if(additionalQuestionKey) {
         await ctx.scene.enter('additionalQuestionScene', {
           user: user,
           responseId: null,
           additionalQuestionKey: additionalQuestionKey,
+        });
+        await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'set_additional_question_scene', {
+          'from_telegram_service' : true
         });
         return;
       }
@@ -167,5 +188,8 @@ export class TelegramService {
     const message = (cronMessage || '') + question.question + '\n\n' + messages.question;
     const replyMarkup = await this.telegramUtils.getEnumKeyboard(AnswerOptions);
     await this.bot.telegram.sendMessage(user.chat_id, message, replyMarkup);
+    await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_question', {
+      'fromCron' : !ctx
+    });
   }
 }
