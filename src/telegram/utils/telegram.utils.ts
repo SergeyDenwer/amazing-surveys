@@ -123,7 +123,8 @@ export class TelegramUtils {
           params: {
             ...eventParams,
             user_id: userId.toString(),
-            debug_mode: this.isDevEnvironment ? 'true' : 'false'
+            engagement_time_msec: 100,
+            session_id: userId.toString()
           }
         }
       ]
@@ -131,7 +132,7 @@ export class TelegramUtils {
 
     try {
       await axios.post(`${GA_ENDPOINT}?measurement_id=${this.gaMeasurementId}&api_secret=${this.gaApiSecret}`, payload);
-      console.log(userId.toString(), eventName, eventParams, this.isDevEnvironment ? 'development' : 'production');
+      console.log(userId, eventName, JSON.stringify(eventParams));
     } catch (error) {
       console.error('Error sending data to Google Analytics:', error);
     }
