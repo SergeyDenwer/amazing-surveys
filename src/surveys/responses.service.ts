@@ -33,6 +33,20 @@ export class ResponsesService {
     return count > 0;
   }
 
+  async findUsersWithoutResponseToLastQuestion(question): Promise<User[]> {
+    const subQuery = this.responseRepository
+      .createQueryBuilder('response')
+      .select('response.user_id')
+      .where('response.question_id = :questionId', { questionId: question.id });
+
+    return this.userRepository
+      .createQueryBuilder('user')
+      .where(`user.id NOT IN (${subQuery.getQuery()})`)
+      .andWhere('user.bot_was_blocked = false')
+      .setParameters(subQuery.getParameters())
+      .getMany();
+  }
+
   async create(createResponseDto: CreateResponseDto): Promise<Response> {
     const user = await this.userRepository.findOne({ where: { id: createResponseDto.user_id } });
     const question = await this.questionRepository.findOne({ where: { id: createResponseDto.question_id } });

@@ -38,7 +38,20 @@ export class GoSceneCreator {
     if (fromCron && message) {
       await this.saveResponse(ctx);
     } else {
-      await this.telegramService.sendQuestion(user, null, ctx);
+      const question = await this.questionsService.getLatestQuestion();
+      const hasResponded = await this.responsesService.hasUserAlreadyResponded(user.id, question.id);
+      if (hasResponded) {
+        await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_question', {
+          'hasResponded' : true
+        });
+        await ctx.scene.enter('additionalQuestionScene', {
+          user: user,
+          responseId: null,
+        });
+        return;
+      }
+      await this.telegramService.sendQuestion(user, question,null);
+      this.telegramUtils.setTimer(ctx);
     }
   }
 
@@ -82,9 +95,6 @@ export class GoSceneCreator {
     await ctx.scene.enter('additionalQuestionScene', {
       user: user,
       responseId: response.id,
-    });
-    await this.telegramUtils.sendToGoogleAnalytics(ctx.chat.id, 'set_additional_question_scene', {
-      'from_go_scene' : true
     });
   }
 

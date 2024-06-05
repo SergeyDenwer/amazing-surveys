@@ -1,4 +1,4 @@
-// src/response/entities/response.entity.ts
+// src/surveys/entities/response.entity.ts
 import {Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, Column, CreateDateColumn} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Question } from './question.entity';

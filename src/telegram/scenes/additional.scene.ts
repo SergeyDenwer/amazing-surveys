@@ -27,25 +27,23 @@ export class AdditionalQuestionSceneCreator {
 
   @SceneEnter()
   async sceneEnter(@Ctx() ctx: SceneContext) {
-    const { user, additionalQuestion } = ctx.scene.state as { user: User, additionalQuestion: AdditionalQuestions };
-    if(!additionalQuestion) {
-      const questionKey = await this.telegramUtils.checkAvailableQuestions(user);
+    const { user } = ctx.scene.state as { user: User };
+    const questionKey = await this.telegramUtils.checkAvailableQuestions(user);
 
-      if (questionKey !== false) {
-        (ctx.scene.state as { additionalQuestion: AdditionalQuestions }).additionalQuestion = questionKey;
-        await this.sendAdditionalQuestion(ctx, questionKey);
-        await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_additional_question', {
-          'have_additional_questions' : true,
-          'additional_question' : questionKey
-        });
-        return;
-      }
+    if (questionKey !== false) {
+      (ctx.scene.state as { additionalQuestion: AdditionalQuestions }).additionalQuestion = questionKey;
+      await this.sendAdditionalQuestion(ctx, questionKey);
+      await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_additional_question', {
+        'have_additional_questions' : true,
+        'additional_question' : questionKey
+      });
+      return;
     }
 
     await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_additional_question', {
       'have_additional_questions' : false
     });
-
+    await ctx.reply(messages.alreadyResponded);
     await ctx.scene.leave();
   }
 

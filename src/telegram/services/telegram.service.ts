@@ -12,6 +12,7 @@ import { TelegramUtils } from "../utils/telegram.utils";
 import {AnswerOptions} from "../../constants/answer-options.enum";
 import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
 import {User} from "../../users/entities/user.entity";
+import {Question} from "../../surveys/entities/question.entity";
 
 @Update()
 @Injectable()
@@ -90,21 +91,15 @@ export class TelegramService {
   async handleText(@Ctx() ctx: SceneContext) {
     const { text, chat } = ctx;
     const isValidAnswer = Object.values(AnswerOptions).includes(text as AnswerOptions);
-    const sessionData = await this.sessionService.getSession(chat.id);
-
-    if (sessionData && sessionData.awaitingResponse) {
+    if ((ctx.session as any).awaitingResponse) {
       if (isValidAnswer) {
-
-        const { awaitingResponse, ...restSessionData } = sessionData;
-        await this.sessionService.setSession(chat.id, restSessionData);
-        ctx.session = restSessionData;
-
-        await ctx.scene.enter('goScene', { fromCron: true, message: text });
+        delete (ctx.session as any).awaitingResponse;
         await this.telegramUtils.sendToGoogleAnalytics(chat.id, 'telegram_service_text', {
           'fromCron' : true,
           'isValidAnswer' : true,
           'answer' : text
         });
+        await ctx.scene.enter('goScene', { fromCron: true, message: text });
       } else {
         await ctx.reply(messages.invalidResponse);
         await this.telegramUtils.sendToGoogleAnalytics(chat.id, 'telegram_service_text', {
@@ -122,19 +117,18 @@ export class TelegramService {
     }
   }
 
-  @Cron('00 15 * * MON')
-  //@Cron('36 11 * * *')
+  //@Cron('00 15 * * MON')
+  @Cron('52 17 * * *')
   async handleCron() {
-    const users = await this.usersService.findAll();
+    const question = await this.questionsService.getLatestQuestion();
+    const users = await this.responsesService.findUsersWithoutResponseToLastQuestion(question);
     for (const user of users) {
-      if (user.bot_was_blocked)
-        continue;
       try {
         const chatId = user.chat_id;
         let sessionData = await this.sessionService.getSession(chatId) || {};
         sessionData.awaitingResponse = true;
         await this.sessionService.setSession(chatId, sessionData);
-        await this.sendQuestion(user, messages.cronMessage);
+        await this.sendQuestion(user, question, messages.cronMessage);
       } catch (error) {
         if (error.response && error.response.error_code === 403) {
           await this.usersService.update(user, { bot_was_blocked: true });
@@ -147,49 +141,12 @@ export class TelegramService {
     }
   }
 
-  async sendQuestion(user: User, cronMessage: string | null = null, ctx: SceneContext = null) {
-
-    const question = await this.questionsService.getLatestQuestion();
-    if (!question) {
-      await this.bot.telegram.sendMessage(user.chat_id, messages.notExistQuestion);
-      if(ctx) await ctx.scene.leave();
-      return;
-    }
-
-    const hasResponded = await this.responsesService.hasUserAlreadyResponded(user.id, question.id);
-    if (hasResponded) {
-      if(!ctx){
-        return;
-      }
-      await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_question', {
-        'hasResponded' : true
-      });
-      const additionalQuestionKey = await this.telegramUtils.checkAvailableQuestions(user)
-      if(additionalQuestionKey) {
-        await ctx.scene.enter('additionalQuestionScene', {
-          user: user,
-          responseId: null,
-          additionalQuestionKey: additionalQuestionKey,
-        });
-        await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'set_additional_question_scene', {
-          'from_telegram_service' : true
-        });
-        return;
-      }
-      await this.bot.telegram.sendMessage(user.chat_id, messages.alreadyResponded);
-      await ctx.scene.leave();
-      return;
-    }
-
-    if (ctx) {
-      this.telegramUtils.setTimer(ctx);
-    }
-
+  async sendQuestion(user: User, question: Question, cronMessage: string | null = null) {
     const message = (cronMessage || '') + question.question + '\n\n' + messages.question;
     const replyMarkup = await this.telegramUtils.getEnumKeyboard(AnswerOptions);
     await this.bot.telegram.sendMessage(user.chat_id, message, replyMarkup);
     await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_question', {
-      'fromCron' : !ctx
+      'fromCron' : !!cronMessage
     });
   }
 }

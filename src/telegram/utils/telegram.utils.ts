@@ -100,7 +100,7 @@ export class TelegramUtils {
       await this.sendToGoogleAnalytics(ctx.chat.id, 'timeout');
     }, this.isDevEnvironment ? 30000 : 600000);
     activeTimers.set(ctx.chat.id, timeoutId);
-    this.sendToGoogleAnalytics(ctx.chat.id, 'set_timer');
+    this.sendToGoogleAnalytics(ctx.chat.id, 'set_timer').then(r => {});
   }
 
   clearTimer(ctx: SceneContext) {
