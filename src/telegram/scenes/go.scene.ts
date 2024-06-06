@@ -1,3 +1,4 @@
+// go.scene.ts
 import { Injectable } from '@nestjs/common';
 import { messages } from "../../messages";
 import { SceneContext } from "telegraf/scenes";
@@ -9,8 +10,9 @@ import { CreateResponseDto } from "../../surveys/dto/create-response.dto";
 import { TelegramUtils } from "../utils/telegram.utils";
 import { SessionService } from "../services/session.service";
 import { UsersService } from "../../users/users.service";
-import {TelegramService} from "../services/telegram.service";
-import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
+import { TelegramService } from "../services/telegram.service";
+import { AdditionalQuestionResponseService } from "../../surveys/additional-question-response.service";
+import { SceneSessionState } from '../session-state.interface';
 
 @Injectable()
 @Scene('goScene')
@@ -26,20 +28,19 @@ export class GoSceneCreator {
   ) {}
 
   @SceneEnter()
-  async sceneEnter(@Ctx() ctx: SceneContext) {
-    const fromCron = (ctx.scene.state as any).fromCron as boolean;
-    const message = (ctx.scene.state as any).message as string;
+  async sceneEnter(@Ctx() ctx: SceneContext<SceneSessionState>) {
+    const { fromCron, message } = ctx.scene.state as SceneSessionState;
 
-    const createUserDto = { telegram_id: ctx.from.id, chat_id: ctx.chat.id};
+    const createUserDto = { telegram_id: ctx.from.id, chat_id: ctx.chat.id };
     const user = await this.usersService.getOrCreateUser(createUserDto);
 
-    (ctx.scene.state as any).user = user;
+    (ctx.scene.state as SceneSessionState).user = user;
 
     if (fromCron && message) {
       await this.saveResponse(ctx);
     } else {
       const question = await this.questionsService.getLatestQuestion();
-      const hasResponded = await this.responsesService.hasUserAlreadyResponded(user.id, question.id);
+      const hasResponded = await this.responsesService.getUserResponse(user.id, question.id);
       if (hasResponded) {
         await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_question', {
           'hasResponded' : true
@@ -50,18 +51,19 @@ export class GoSceneCreator {
         });
         return;
       }
-      await this.telegramService.sendQuestion(user, question,null);
+      (ctx.session as SceneSessionState).question = question;
+      await this.telegramService.sendQuestion(user, question, null);
       this.telegramUtils.setTimer(ctx);
     }
   }
 
   @On('text')
-  async handleText(@Ctx() ctx: SceneContext) {
+  async handleText(@Ctx() ctx: SceneContext<SceneSessionState>) {
     this.telegramUtils.clearTimer(ctx);
     await this.saveResponse(ctx);
   }
 
-  private async saveResponse(@Ctx() ctx: SceneContext) {
+  private async saveResponse(@Ctx() ctx: SceneContext<SceneSessionState>) {
     const { text } = ctx;
 
     const answerOptionKey = this.telegramUtils.getEnumKeyByValue(AnswerOptions, text);
@@ -74,17 +76,18 @@ export class GoSceneCreator {
       return;
     }
 
-    const { user } = ctx.scene.state as { user: any };
-    const question = await this.questionsService.getLatestQuestion();
+    const { user } = ctx.scene.state as SceneSessionState;
+    const question = (ctx.session as SceneSessionState).question;
     const response = await this.createResponse(user.id, question.id, answerOptionKey);
+    delete (ctx.session as SceneSessionState).question;
     await this.telegramUtils.sendToGoogleAnalytics(ctx.chat.id, 'go_scene_save_response', {
       'isValidAnswer' : true,
       'answer' : text
     });
-    delete (ctx.session as any).mainQuestion;
     const previousQuestion = await this.questionsService.getPreviousQuestion();
     if (previousQuestion) {
-      const imagePath = await this.telegramUtils.getImage('result.png', previousQuestion.id, previousQuestion.created_at);
+      const userResponse = await this.responsesService.getUserResponse(user.id, question.id);
+      const imagePath = await this.telegramUtils.getImage(userResponse.choice, previousQuestion.id, previousQuestion.created_at);
       await ctx.replyWithPhoto({ source: imagePath }, {
         caption: messages.thanksResponse + ' ' + messages.thanksResponseDescription,
       });

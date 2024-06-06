@@ -2,18 +2,19 @@ import { createCanvas, registerFont, CanvasRenderingContext2D, Canvas } from 'ca
 import * as fs from 'fs';
 import * as path from 'path';
 import * as moment from 'moment';
-import Jimp from 'jimp';
+import {GlitchEffect} from "./glitchEffect";
 
 export interface Option {
+  key: string;
   text: string;
   percentage: number;
 }
 
 export class GenerateImage {
   private readonly date: string;
+  private readonly selectedOption: string;
   private readonly text: string;
   private readonly percentage: number;
-  private readonly percentTexts: Option[];
   private readonly options: Option[];
   private readonly votesCount: number;
 
@@ -43,13 +44,13 @@ export class GenerateImage {
     distanceFromNeedle: 168
   };
 
-  constructor(date: string, text: string, percentage: number, percentTexts: Option[], options: Option[], votesCount: number) {
+  constructor(date: string, text: string, percentage: number, options: Option[], votesCount: number, selectedOption) {
     this.date = date;
     this.text = text;
     this.percentage = percentage;
-    this.percentTexts = percentTexts;
     this.options = options;
     this.votesCount = votesCount;
+    this.selectedOption = selectedOption;
     this.registerFonts();
   }
 
@@ -110,7 +111,14 @@ export class GenerateImage {
   }
 
   private getPercentText(percentage: number): string {
-    return this.percentTexts.find(opt => percentage <= opt.percentage)?.text || this.percentTexts[this.percentTexts.length - 1].text;
+    const percentTexts = [
+      { text: 'АБСОЛЮТНОЕ СПОКОЙСТВИЕ', percentage: 20 },
+      { text: 'ЛЕГКОЕ ВОЛНЕНИЕ', percentage: 40 },
+      { text: 'УМЕРЕННЫЙ СТРЕСС', percentage: 60 },
+      { text: 'ВЫСОКАЯ НАПРЯЖЕННОСТЬ', percentage: 80 },
+      { text: 'ПОЛНЫЙ ПИЗДЕЦ', percentage: 100 }
+    ];
+    return percentTexts.find(opt => percentage <= opt.percentage)?.text || percentTexts[percentTexts.length - 1].text;
   }
 
   private getYearAndWeekFromDate(date: string): { year: number, week: number } {
@@ -205,7 +213,13 @@ export class GenerateImage {
   private drawOptionsOnTempCanvas(canvasWidth: number) {
     const tempCanvas = createCanvas(canvasWidth, 4800);
     const tempCtx = tempCanvas.getContext('2d');
-    const barColors = ['#FFF500', '#FFCC00', '#FFA300', '#FF7A00', '#FF0000'];
+    const barColors = {
+      'Option1': '#FFF500',
+      'Option2': '#FFCC00',
+      'Option3': '#FFA300',
+      'Option4': '#FF7A00',
+      'Option5': '#FF0000'
+    };
     const textToPercentageSpace = 120;
     const textLineHeight = 36;
     const barHeight = 14;
@@ -216,7 +230,7 @@ export class GenerateImage {
 
     let currentY = 0;
 
-    this.options.forEach((option, index) => {
+    this.options.forEach((option) => {
       tempCtx.textAlign = 'left';
       tempCtx.fillStyle = '#FFFFFF';
       tempCtx.font = `28px "Noto Sans"`;
@@ -227,7 +241,7 @@ export class GenerateImage {
       const maxBarWidth = canvasWidth - paddingLeftRight * 3 - 90;
       let barWidth = (canvasWidth - paddingLeftRight * 2) * (option.percentage / 100);
       barWidth = Math.min(barWidth, maxBarWidth);
-      tempCtx.fillStyle = barColors[index];
+      tempCtx.fillStyle = barColors[option.key];
       const barY = textY + textHeight + spacingBelowText;
 
       if (option.percentage > 0) {
@@ -251,6 +265,24 @@ export class GenerateImage {
         tempCtx.arc(paddingLeftRight + barRadius, barY + barRadius, barRadius, 0, 2 * Math.PI);
         tempCtx.closePath();
         tempCtx.fill();
+      }
+
+      if (option.key === this.selectedOption) {
+        tempCtx.fillStyle = barColors[option.key];
+        const checkMarkCircleRadius = 15;
+        const checkMarkCircleX = canvasWidth - paddingLeftRight - 85; // положение кружка слева от процента
+        const checkMarkCircleY = barY;
+        tempCtx.beginPath();
+        tempCtx.arc(checkMarkCircleX, checkMarkCircleY, checkMarkCircleRadius, 0, 2 * Math.PI);
+        tempCtx.fill();
+
+        tempCtx.strokeStyle = '#000';
+        tempCtx.lineWidth = 3;
+        tempCtx.beginPath();
+        tempCtx.moveTo(checkMarkCircleX - 6, checkMarkCircleY);
+        tempCtx.lineTo(checkMarkCircleX - 2, checkMarkCircleY + 4);
+        tempCtx.lineTo(checkMarkCircleX + 6, checkMarkCircleY - 6);
+        tempCtx.stroke();
       }
 
       tempCtx.textAlign = 'right';
@@ -350,8 +382,10 @@ export class GenerateImage {
     this.drawFooter(ctx, votesCountText, paddingLeftRight, votesCountTextY);
 
     const buffer = canvas.toBuffer('image/png');
-    const imagePath = this.saveImage(buffer, 'result.png');
-    //await this.applyGlitchEffect(imagePath, 100);
+    const imageName = (this.selectedOption ? this.selectedOption : 'NoOption') + '.png'
+    const imagePath = this.saveImage(buffer, imageName);
+    //const glitchEffect = new GlitchEffect();
+    //await glitchEffect.applyEffects(imagePath, 100);
     console.timeEnd('Image main generation time');
     console.log('The main image was created successfully!');
   }
@@ -374,92 +408,9 @@ export class GenerateImage {
 
     const buffer = canvas.toBuffer('image/png');
     const imagePath = this.saveImage(buffer, 'avatar.png');
-    //await this.applyEffects(imagePath, 50);
+    //const glitchEffect = new GlitchEffect();
+    //await glitchEffect.applyEffects(imagePath, 50);
     console.timeEnd('Image avatar generation time');
     console.log('The avatar speedometer image was created successfully!');
-  }
-
-  private async applyEffects(imagePath: string, glitchAmount: number): Promise<string> {
-    const image = await Jimp.read(imagePath);
-
-    await this.applyGlitchEffect(image, glitchAmount);
-    await this.applyChannelShiftEffect(image, 5);
-    await this.applyNoiseEffect(image, 0.005);
-
-    await image.writeAsync(imagePath);
-    return imagePath;
-  }
-
-  private async applyGlitchEffect(image: Jimp, intensity: number = 0.01): Promise<void> {
-    for (let i = 0; i < intensity; i++) {
-      const x = Math.floor(Math.random() * image.bitmap.width);
-      const y = Math.floor(Math.random() * image.bitmap.height);
-      const width = Math.floor(Math.random() * (image.bitmap.width - x));
-      const height = Math.min(Math.floor(Math.random() * 10), image.bitmap.height - y);
-
-      const section = image.clone().crop(x, y, width, height);
-      const newX = Math.floor(Math.random() * (image.bitmap.width - width));
-      image.blit(section, newX, y);
-    }
-  }
-
-
-  private async applyNoiseEffect(image: Jimp, intensity: number = 0.01): Promise<void> {
-    for (let x = 0; x < image.bitmap.width; x++) {
-      for (let y = 0; y < image.bitmap.height; y++) {
-        if (Math.random() < intensity) {
-          const noise = (Math.random() * 2 - 1) * 30; // Уменьшено с 255 до 30
-          const pixel = Jimp.intToRGBA(image.getPixelColor(x, y));
-          pixel.r = Math.max(0, Math.min(255, pixel.r + noise));
-          pixel.g = Math.max(0, Math.min(255, pixel.g + noise));
-          pixel.b = Math.max(0, Math.min(255, pixel.b + noise));
-          image.setPixelColor(Jimp.rgbaToInt(pixel.r, pixel.g, pixel.b, pixel.a), x, y);
-        }
-      }
-    }
-  }
-
-  private async applyChannelShiftEffect(image: Jimp, shiftAmount: number = 5): Promise<void> {
-    const redChannel = new Jimp(image.bitmap.width, image.bitmap.height);
-    const greenChannel = new Jimp(image.bitmap.width, image.bitmap.height);
-    const blueChannel = new Jimp(image.bitmap.width, image.bitmap.height);
-
-    redChannel.scan(0, 0, redChannel.bitmap.width, redChannel.bitmap.height, (x, y, idx) => {
-      const newX = Math.min(image.bitmap.width - 1, x + shiftAmount);
-      const redIdx = (image.bitmap.width * y + newX) << 2;
-      redChannel.bitmap.data[redIdx] = image.bitmap.data[idx];
-      redChannel.bitmap.data[redIdx + 1] = image.bitmap.data[idx + 1];
-      redChannel.bitmap.data[redIdx + 2] = image.bitmap.data[idx + 2];
-      redChannel.bitmap.data[redIdx + 3] = image.bitmap.data[idx + 3];
-    });
-
-    greenChannel.scan(0, 0, greenChannel.bitmap.width, greenChannel.bitmap.height, (x, y, idx) => {
-      const newX = Math.max(0, x - shiftAmount);
-      const greenIdx = (image.bitmap.width * y + newX) << 2;
-      greenChannel.bitmap.data[greenIdx] = image.bitmap.data[idx];
-      greenChannel.bitmap.data[greenIdx + 1] = image.bitmap.data[idx + 1];
-      greenChannel.bitmap.data[greenIdx + 2] = image.bitmap.data[idx + 2];
-      greenChannel.bitmap.data[greenIdx + 3] = image.bitmap.data[idx + 3];
-    });
-
-    blueChannel.scan(0, 0, blueChannel.bitmap.width, blueChannel.bitmap.height, (x, y, idx) => {
-      const newY = Math.min(image.bitmap.height - 1, y + shiftAmount);
-      const blueIdx = (image.bitmap.width * newY + x) << 2;
-      blueChannel.bitmap.data[blueIdx] = image.bitmap.data[idx];
-      blueChannel.bitmap.data[blueIdx + 1] = image.bitmap.data[idx + 1];
-      blueChannel.bitmap.data[blueIdx + 2] = image.bitmap.data[idx + 2];
-      blueChannel.bitmap.data[blueIdx + 3] = image.bitmap.data[idx + 3];
-    });
-
-    image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
-      const redIdx = (image.bitmap.width * y + x) << 2;
-      const greenIdx = (image.bitmap.width * y + x) << 2;
-      const blueIdx = (image.bitmap.width * y + x) << 2;
-
-      image.bitmap.data[idx] = redChannel.bitmap.data[redIdx]; // Red
-      image.bitmap.data[idx + 1] = greenChannel.bitmap.data[greenIdx + 1]; // Green
-      image.bitmap.data[idx + 2] = blueChannel.bitmap.data[blueIdx + 2]; // Blue
-      image.bitmap.data[idx + 3] = image.bitmap.data[idx + 3]; // Alpha
-    });
   }
 }

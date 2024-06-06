@@ -23,14 +23,14 @@ export class ResponsesService {
     private questionRepository: Repository<Question>
   ) {}
 
-  async hasUserAlreadyResponded(userId: number, questionId: number): Promise<boolean> {
-    const count = await this.responseRepository.count({
+  async getUserResponse(userId: number, questionId: number): Promise<Response | null> {
+    const response = await this.responseRepository.findOne({
       where: {
         user: { id: userId },
         question: { id: questionId }
       }
     });
-    return count > 0;
+    return response || null;
   }
 
   async findUsersWithoutResponseToLastQuestion(question): Promise<User[]> {
@@ -64,7 +64,7 @@ export class ResponsesService {
     return this.responseRepository.save(newResponse);
   }
 
-  async generateImageForQuestion(questionId: number, fromTelegram: boolean = false): Promise<{mainImagePath: string, avatarImagePath: string} | void> {
+  async generateImageForQuestion(questionId: number, fromTelegram: boolean = false, selectedOption: string = null): Promise<{mainImagePath: string, avatarImagePath: string} | void> {
     const question = await this.questionRepository.findOne({ where: { id: questionId } });
     if (!question) {
       throw new Error('Question not found');
@@ -93,35 +93,25 @@ export class ResponsesService {
     ) / 10;
 
     const options: Option[] = [
-      { text:  AnswerOptions.Option1, percentage: Math.round((optionsCount.Option1 / totalResponses) * 100 * 10) / 10 },
-      { text:  AnswerOptions.Option2, percentage: Math.round((optionsCount.Option2 / totalResponses) * 100 * 10) / 10 },
-      { text:  AnswerOptions.Option3, percentage: Math.round((optionsCount.Option3 / totalResponses) * 100 * 10) / 10 },
-      { text:  AnswerOptions.Option4, percentage: Math.round((optionsCount.Option4 / totalResponses) * 100 * 10) / 10 },
-      { text:  AnswerOptions.Option5, percentage: Math.round((optionsCount.Option5 / totalResponses) * 100 * 10) / 10 }
+      { key: 'Option1', text: AnswerOptions.Option1, percentage: Math.floor((optionsCount.Option1 / totalResponses) * 100) },
+      { key: 'Option2', text: AnswerOptions.Option2, percentage: Math.floor((optionsCount.Option2 / totalResponses) * 100) },
+      { key: 'Option3', text: AnswerOptions.Option3, percentage: Math.floor((optionsCount.Option3 / totalResponses) * 100) },
+      { key: 'Option4', text: AnswerOptions.Option4, percentage: Math.floor((optionsCount.Option4 / totalResponses) * 100) },
+      { key: 'Option5', text: AnswerOptions.Option5, percentage: Math.floor((optionsCount.Option5 / totalResponses) * 100) }
     ];
 
-    const generator = new GenerateImage(moment(question.created_at).format('DD.MM.YYYY'), question.question, percentage, this.getPercentTexts(), options, totalResponses);
+    const generator = new GenerateImage(moment(question.created_at).format('DD.MM.YYYY'), question.question, percentage, options, totalResponses, selectedOption);
     await generator.generateMainImage();
     await generator.generateAvatar();
 
     if (fromTelegram) {
       const year = moment(question.created_at).year();
       const week = moment(question.created_at).week();
-
-      const mainImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'result.png');
+      const mainImageName = (selectedOption ? selectedOption : 'NoOption') + '.png';
+      const mainImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, mainImageName);
       const avatarImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'avatar.png');
 
       return { mainImagePath, avatarImagePath };
     }
-  }
-
-  private getPercentTexts(): Option[] {
-    return [
-      { text: 'АБСОЛЮТНОЕ СПОКОЙСТВИЕ', percentage: 20 },
-      { text: 'ЛЕГКОЕ ВОЛНЕНИЕ', percentage: 40 },
-      { text: 'УМЕРЕННЫЙ СТРЕСС', percentage: 60 },
-      { text: 'ВЫСОКАЯ НАПРЯЖЕННОСТЬ', percentage: 80 },
-      { text: 'ПОЛНЫЙ ПИЗДЕЦ', percentage: 100 }
-    ];
   }
 }

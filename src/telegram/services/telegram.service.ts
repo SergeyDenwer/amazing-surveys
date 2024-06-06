@@ -1,3 +1,4 @@
+// telegram.service.ts
 import { Injectable } from "@nestjs/common";
 import { Update, Ctx, Start, Help, Command, InjectBot, On } from 'nestjs-telegraf';
 import { Context, Telegraf } from 'telegraf';
@@ -9,10 +10,11 @@ import { QuestionsService } from "../../surveys/questions.service";
 import { ResponsesService } from "../../surveys/responses.service";
 import { SessionService } from './session.service';
 import { TelegramUtils } from "../utils/telegram.utils";
-import {AnswerOptions} from "../../constants/answer-options.enum";
-import {AdditionalQuestionResponseService} from "../../surveys/additional-question-response.service";
-import {User} from "../../users/entities/user.entity";
-import {Question} from "../../surveys/entities/question.entity";
+import { AnswerOptions } from "../../constants/answer-options.enum";
+import { AdditionalQuestionResponseService } from "../../surveys/additional-question-response.service";
+import { User } from "../../users/entities/user.entity";
+import { Question } from "../../surveys/entities/question.entity";
+import { SessionState } from '../session-state.interface';
 
 @Update()
 @Injectable()
@@ -40,73 +42,42 @@ export class TelegramService {
   }
 
   @Command('go')
-  async getQuestion(@Ctx() ctx: SceneContext) {
+  async getQuestion(@Ctx() ctx: SceneContext<SessionState>) {
     await this.telegramUtils.sendToGoogleAnalytics(ctx.from.id, 'go_command');
     await ctx.scene.enter('goScene');
     return;
   }
 
   @Command('feedback')
-  async feedbackCommand(@Ctx() ctx: SceneContext) {
+  async feedbackCommand(@Ctx() ctx: SceneContext<SessionState>) {
     await this.telegramUtils.sendToGoogleAnalytics(ctx.from.id, 'feedback_command');
-    await ctx.scene.enter('feedbackScene')
-    return
+    await ctx.scene.enter('feedbackScene');
+    return;
   }
 
   @Command('gen')
-  async generatePictures(@Ctx() ctx: SceneContext) {
-    const allowedUserIds = [368397946, 6747384, 152816106];
-    const userId = ctx.from.id;
-
-    if (!allowedUserIds.includes(userId)) {
-      return;
-    }
-
-    const { text } = ctx;
-    const match = text.match(/ID: (\d+)/);
-    if (!match) {
-      await ctx.reply("Please provide a valid question ID in the format 'ID: [number]'.");
-      return;
-    }
-
-    const questionId = parseInt(match[1], 10);
-    const question = await this.questionsService.findOne(questionId);
-    if (!question) {
-      await ctx.reply("No question found with the provided ID.");
-      return;
-    }
-
-    const imagePaths = await this.responsesService.generateImageForQuestion(question.id, true);
-
-    if (imagePaths) {
-      const { mainImagePath, avatarImagePath } = imagePaths;
-      await ctx.replyWithPhoto({ source: mainImagePath });
-      await ctx.replyWithPhoto({ source: avatarImagePath });
-    } else {
-      await ctx.reply("Failed to generate images.");
-    }
+  async generatePictures(@Ctx() ctx: SceneContext<SessionState>) {
+    await this.telegramUtils.generatePictures(ctx);
   }
 
   @On('text')
-  async handleText(@Ctx() ctx: SceneContext) {
+  async handleText(@Ctx() ctx: SceneContext<SessionState>) {
     const { text, chat } = ctx;
     const isValidAnswer = Object.values(AnswerOptions).includes(text as AnswerOptions);
-    if ((ctx.session as any).awaitingResponse) {
+    if ((ctx.session as SessionState).awaitingResponse) {
+      let eventParams = {
+        'fromCron' : true,
+        'isValidAnswer' : true,
+        'answer' : text
+      };
       if (isValidAnswer) {
-        delete (ctx.session as any).awaitingResponse;
-        await this.telegramUtils.sendToGoogleAnalytics(chat.id, 'telegram_service_text', {
-          'fromCron' : true,
-          'isValidAnswer' : true,
-          'answer' : text
-        });
+        (ctx.session as SessionState).awaitingResponse = false;
+        await this.telegramUtils.sendToGoogleAnalytics(chat.id, 'telegram_service_text', eventParams);
         await ctx.scene.enter('goScene', { fromCron: true, message: text });
       } else {
         await ctx.reply(messages.invalidResponse);
-        await this.telegramUtils.sendToGoogleAnalytics(chat.id, 'telegram_service_text', {
-          'fromCron' : true,
-          'isValidAnswer' : false,
-          'answer' : text
-        });
+        eventParams.isValidAnswer = false;
+        await this.telegramUtils.sendToGoogleAnalytics(chat.id, 'telegram_service_text', eventParams);
       }
     } else {
       await ctx.reply(messages.unknownCommand);
@@ -117,27 +88,34 @@ export class TelegramService {
     }
   }
 
-  //@Cron('00 15 * * MON')
-  @Cron('52 17 * * *')
+  @Cron('23 18 * * *')
   async handleCron() {
     const question = await this.questionsService.getLatestQuestion();
     const users = await this.responsesService.findUsersWithoutResponseToLastQuestion(question);
     for (const user of users) {
       try {
-        const chatId = user.chat_id;
-        let sessionData = await this.sessionService.getSession(chatId) || {};
-        sessionData.awaitingResponse = true;
-        await this.sessionService.setSession(chatId, sessionData);
         await this.sendQuestion(user, question, messages.cronMessage);
+        await this.setCronSession(user, question)
       } catch (error) {
-        if (error.response && error.response.error_code === 403) {
-          await this.usersService.update(user, { bot_was_blocked: true });
-          await this.sessionService.resetSession(user.chat_id)
-          console.error(`User ${user.chat_id} has blocked the bot.`);
-        } else {
-          console.error(`Failed to send message to user ${user.chat_id}:`, error);
-        }
+        await this.handleSendMessageError(user, error)
       }
+    }
+  }
+
+  private async setCronSession(user, question) {
+    const chatId = user.chat_id;
+    let sessionData = await this.sessionService.getSession(chatId) || {};
+    sessionData.awaitingResponse = true;
+    sessionData.question = question;
+    await this.sessionService.setSession(chatId, sessionData);
+  }
+
+  private async handleSendMessageError(user: User, error: any) {
+    if (error.response && error.response.error_code === 403) {
+      await this.usersService.update(user, { bot_was_blocked: true });
+      console.error(`User ${user.chat_id} has blocked the bot.`);
+    } else {
+      console.error(`Failed to send message to user ${user.chat_id}:`, error);
     }
   }
 
@@ -145,8 +123,6 @@ export class TelegramService {
     const message = (cronMessage || '') + question.question + '\n\n' + messages.question;
     const replyMarkup = await this.telegramUtils.getEnumKeyboard(AnswerOptions);
     await this.bot.telegram.sendMessage(user.chat_id, message, replyMarkup);
-    await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_question', {
-      'fromCron' : !!cronMessage
-    });
+    await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_question', {'fromCron' : !!cronMessage});
   }
 }
