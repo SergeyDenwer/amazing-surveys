@@ -21,7 +21,7 @@ export class User {
   @Column({ default: false })
   is_bot: boolean;
 
-  @Column()
+  @Column({ nullable: true })
   language_code: string;
 
   @Column({ default: false })

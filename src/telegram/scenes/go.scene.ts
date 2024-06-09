@@ -31,8 +31,7 @@ export class GoSceneCreator {
   async sceneEnter(@Ctx() ctx: SceneContext<SceneSessionState>) {
     const { fromCron, message } = ctx.scene.state as SceneSessionState;
 
-    const createUserDto = { telegram_id: ctx.from.id, chat_id: ctx.chat.id };
-    const user = await this.usersService.getOrCreateUser(createUserDto);
+    const user = await this.usersService.getOrCreateUserFromTelegram(ctx);
 
     (ctx.scene.state as SceneSessionState).user = user;
 
@@ -86,7 +85,7 @@ export class GoSceneCreator {
     });
     const previousQuestion = await this.questionsService.getPreviousQuestion();
     if (previousQuestion) {
-      const userResponse = await this.responsesService.getUserResponse(user.id, question.id);
+      const userResponse = await this.responsesService.getUserResponse(user.id, previousQuestion.id);
       const imagePath = await this.telegramUtils.getImage(userResponse.choice, previousQuestion.id, previousQuestion.created_at);
       await ctx.replyWithPhoto({ source: imagePath }, {
         caption: messages.thanksResponse + ' ' + messages.thanksResponseDescription,

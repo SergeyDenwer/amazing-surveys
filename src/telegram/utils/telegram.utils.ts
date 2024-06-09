@@ -50,16 +50,6 @@ export class TelegramUtils {
     this.setTimer(ctx);
   }
 
-  async getOrCreateUser(ctx: SceneContext) {
-    const createUserDto = {
-      telegram_id: ctx.from.id,
-      chat_id: ctx.chat.id,
-      is_bot: ctx.from.is_bot,
-      language_code: ctx.from.language_code,
-    };
-    return this.usersService.getOrCreateUser(createUserDto);
-  }
-
   async getImage(selectedOption: string = null, questionId: number, date: Date) {
     const imageName = (selectedOption ? selectedOption : 'NoOption')  + '.png';
     const year = moment(date).year();

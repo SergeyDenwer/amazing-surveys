@@ -27,8 +27,4 @@ export class FeedbackService {
     });
     return this.feedbackRepository.save(feedback);
   }
-
-  findAll() {
-    return this.feedbackRepository.find({ relations: ['user'] });
-  }
 }

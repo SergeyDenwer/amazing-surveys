@@ -88,7 +88,7 @@ export class TelegramService {
     }
   }
 
-  @Cron('23 18 * * *')
+  @Cron('38 13 * * *')
   async handleCron() {
     const question = await this.questionsService.getLatestQuestion();
     const users = await this.responsesService.findUsersWithoutResponseToLastQuestion(question);

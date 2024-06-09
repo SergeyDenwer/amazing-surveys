@@ -18,10 +18,6 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
-  findAll() {
-    return this.userRepository.find();
-  }
-
   findOne(id: number) {
     return this.userRepository.findOne({ where: { id } });
   }
@@ -35,31 +31,23 @@ export class UsersService {
     return this.userRepository.save(updatedUser);
   }
 
-  async getOrCreateUser(createUserDto: CreateUserDto): Promise<User> {
-    let user = await this.findByTelegramID(createUserDto.telegram_id);
+  async getOrCreateUserFromTelegram(ctx): Promise<User> {
+    let user = await this.findByTelegramID(ctx.from.id);
     if (!user) {
-      user = this.userRepository.create(createUserDto);
-      await this.userRepository.save(user);
+      try {
+        const createUserDto: CreateUserDto = {
+          telegram_id: ctx.from.id,
+          chat_id: ctx.chat.id,
+          is_bot: ctx.from.is_bot,
+          language_code: ctx.from.language_code
+        };
+        user = this.userRepository.create(createUserDto);
+        await this.userRepository.save(user);
+      } catch (error) {
+        console.error(error)
+      }
     }
 
     return user;
-  }
-
-  async updateOrCreateUser(createUserDto: CreateUserDto, updateUserDto: UpdateUserDto): Promise<User> {
-    let user = await this.findByTelegramID(createUserDto.telegram_id);
-
-    // Если пользователь не найден, создаем нового
-    if (!user) {
-      user = this.userRepository.create(createUserDto);
-    } else {
-      // Обновляем данные существующего пользователя
-      user = Object.assign(user, updateUserDto);
-    }
-
-    return this.userRepository.save(user);
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} user`;
   }
 }
