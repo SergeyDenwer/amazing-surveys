@@ -13,6 +13,9 @@ import {AdditionalQuestionResponseService} from "../../surveys/additional-questi
 import axios from "axios";
 import { ConfigService } from '@nestjs/config';
 import {Injectable} from "@nestjs/common";
+import {Ctx} from "nestjs-telegraf";
+import {SessionState} from "../session-state.interface";
+import {QuestionsService} from "../../surveys/questions.service";
 
 const activeTimers: Map<number, NodeJS.Timeout> = new Map();
 @Injectable()
@@ -26,6 +29,7 @@ export class TelegramUtils {
     private readonly sessionService: SessionService,
     private additionalQuestionResponseService: AdditionalQuestionResponseService,
     private readonly configService: ConfigService,
+    private questionsService: QuestionsService,
   ) {
     this.isDevEnvironment = this.configService.get<string>('environment') === 'dev';
     this.gaMeasurementId = this.configService.get<string>('googleAnalytics.measurementId');
@@ -46,28 +50,19 @@ export class TelegramUtils {
     this.setTimer(ctx);
   }
 
-  async getOrCreateUser(ctx: SceneContext) {
-    const createUserDto = {
-      telegram_id: ctx.from.id,
-      chat_id: ctx.chat.id,
-      is_bot: ctx.from.is_bot,
-      language_code: ctx.from.language_code,
-    };
-    return this.usersService.getOrCreateUser(createUserDto);
-  }
-
-  async getImage(name: string, questionId: number, date: Date) {
+  async getImage(selectedOption: string = null, questionId: number, date: Date) {
+    const imageName = (selectedOption ? selectedOption : 'NoOption')  + '.png';
     const year = moment(date).year();
     const week = moment(date).week();
     const path = require('path');
-    const imagePath = path.join(__dirname, '..', '..', '..', '..', 'images', 'results', year.toString(), `${week}`, name);
+    const imagePath = path.join(__dirname, '..', '..', '..', '..', 'images', 'results', year.toString(), `${week}`, imageName);
 
     if (fs.existsSync(imagePath)) {
       console.log('Return existing image')
       return imagePath;
     }
 
-    const generatedImages = await this.responsesService.generateImageForQuestion(questionId, true);
+    const generatedImages = await this.responsesService.generateImageForQuestion(questionId, true, selectedOption);
     if (generatedImages) {
       return generatedImages.mainImagePath;
     }
@@ -114,7 +109,6 @@ export class TelegramUtils {
 
   async sendToGoogleAnalytics(userId: number, eventName: string, eventParams: any = {}) {
     const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
-
     const payload = {
       client_id: userId.toString(),
       events: [
@@ -135,6 +129,38 @@ export class TelegramUtils {
       console.log(userId, eventName, JSON.stringify(eventParams));
     } catch (error) {
       console.error('Error sending data to Google Analytics:', error);
+    }
+  }
+
+  async generatePictures(@Ctx() ctx: SceneContext<SessionState>) {
+    const allowedUserIds = [368397946, 6747384, 152816106];
+    const userId = ctx.from.id;
+    if (!allowedUserIds.includes(userId)) {
+      return;
+    }
+
+    const { text } = ctx;
+    const match = text.match(/ID: (\d+)(?:\s+(\w+))?/);
+    if (!match) {
+      await ctx.reply("Please provide a valid question ID in the format 'ID: [number] [optional option]'.");
+      return;
+    }
+
+    const questionId = parseInt(match[1], 10);
+    const selectedOption = match[2] || null;
+    const question = await this.questionsService.findOne(questionId);
+    if (!question) {
+      await ctx.reply("No question found with the provided ID.");
+      return;
+    }
+
+    const imagePaths = await this.responsesService.generateImageForQuestion(question.id, true, selectedOption);
+    if (imagePaths) {
+      const { mainImagePath, avatarImagePath } = imagePaths;
+      await ctx.replyWithPhoto({ source: mainImagePath });
+      await ctx.replyWithPhoto({ source: avatarImagePath });
+    } else {
+      await ctx.reply("Failed to generate images.");
     }
   }
 

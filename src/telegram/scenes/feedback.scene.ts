@@ -4,7 +4,6 @@ import { messages } from "../../messages";
 import { CreateFeedbackDto } from '../../feedback/dto/create-feedback.dto';
 import {SceneContext} from "telegraf/scenes";
 import {Ctx, On, Scene, SceneEnter} from "nestjs-telegraf";
-import {CreateUserDto} from "../../users/dto/create-user.dto";
 import {UsersService} from "../../users/users.service";
 import { TelegramUtils } from "../utils/telegram.utils";
 import {ResponsesService} from "../../surveys/responses.service";
@@ -34,13 +33,7 @@ export class FeedbackSceneCreator {
     this.telegramUtils.clearTimer(ctx);
 
     const { text } = ctx;
-    const createUserDto: CreateUserDto = {
-      telegram_id: ctx.from.id,
-      chat_id: ctx.chat.id,
-      is_bot: ctx.from.is_bot,
-      language_code: ctx.from.language_code
-    };
-    const user = await this.usersService.getOrCreateUser(createUserDto);
+    const user = await this.usersService.getOrCreateUserFromTelegram(ctx);
 
     if (!text) {
       await ctx.reply(messages.notExistFeedback);
