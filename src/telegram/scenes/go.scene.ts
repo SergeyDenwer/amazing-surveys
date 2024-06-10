@@ -86,7 +86,7 @@ export class GoSceneCreator {
     const previousQuestion = await this.questionsService.getPreviousQuestion();
     if (previousQuestion) {
       const userResponse = await this.responsesService.getUserResponse(user.id, previousQuestion.id);
-      const imagePath = await this.telegramUtils.getImage(userResponse.choice, previousQuestion.id, previousQuestion.created_at);
+      const imagePath = await this.telegramUtils.getImage(userResponse?.choice, previousQuestion.id, previousQuestion.created_at);
       await ctx.replyWithPhoto({ source: imagePath }, {
         caption: messages.thanksResponse + ' ' + messages.thanksResponseDescription,
       });
