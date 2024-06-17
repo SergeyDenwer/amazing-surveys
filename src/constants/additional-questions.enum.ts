@@ -1,4 +1,5 @@
 export enum AdditionalQuestions {
   AreYouInRussia = "AreYouInRussia",
-  HowOldAreYou = "HowOldAreYou"
+  HowOldAreYou = "HowOldAreYou",
+  WhatIsYourMonthlyIncome = "WhatIsYourMonthlyIncome"
 }

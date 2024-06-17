@@ -13,6 +13,7 @@ import { TelegramUtils } from "../utils/telegram.utils";
 import { SessionService } from "../services/session.service";
 import { UsersService } from "../../users/users.service";
 import { ResponsesService } from "../../surveys/responses.service";
+import { MonthlyIncomeOptions } from "../../constants/monthly-income-options.enum";
 
 @Injectable()
 @Scene('additionalQuestionScene')
@@ -66,7 +67,7 @@ export class AdditionalQuestionSceneCreator {
       additionalQuestion: AdditionalQuestions;
     };
 
-    const answer = this.telegramUtils.getEnumKeyByValue({ ...BinaryOptions, ...AgeOptions }, text);
+    const answer = this.telegramUtils.getEnumKeyByValue({ ...BinaryOptions, ...AgeOptions, ...MonthlyIncomeOptions }, text);
     if (!answer) {
       await this.telegramUtils.handleInvalidResponse(ctx);
       await this.telegramUtils.sendToGoogleAnalytics(ctx.chat.id, 'additional_question_save_response', {
