@@ -14,6 +14,6 @@ export const additionalQuestionsConfig = {
   },
   [AdditionalQuestions.WhatIsYourMonthlyIncome]: {
     options: MonthlyIncomeOptions,
-    expiresIn: 52,
+    expiresIn: 26,
   },
 };
