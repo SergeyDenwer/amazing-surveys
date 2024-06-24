@@ -75,7 +75,7 @@ export class GoSceneCreator {
       return;
     }
 
-    const { user } = ctx.scene.state as SceneSessionState;
+    const { user, fromCron } = ctx.scene.state as SceneSessionState;
     const question = (ctx.session as SceneSessionState).question;
     const response = await this.createResponse(user.id, question.id, answerOptionKey);
     delete (ctx.session as SceneSessionState).question;
@@ -97,6 +97,7 @@ export class GoSceneCreator {
     await ctx.scene.enter('additionalQuestionScene', {
       user: user,
       responseId: response.id,
+      fromCron: fromCron
     });
   }
 
