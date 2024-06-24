@@ -14,6 +14,7 @@ import { SessionService } from "../services/session.service";
 import { UsersService } from "../../users/users.service";
 import { ResponsesService } from "../../surveys/responses.service";
 import { MonthlyIncomeOptions } from "../../constants/monthly-income-options.enum";
+import { SceneSessionState } from "../session-state.interface";
 
 @Injectable()
 @Scene('additionalQuestionScene')
@@ -28,7 +29,7 @@ export class AdditionalQuestionSceneCreator {
 
   @SceneEnter()
   async sceneEnter(@Ctx() ctx: SceneContext) {
-    const { user } = ctx.scene.state as { user: User };
+    const { user, fromCron } = ctx.scene.state as { user: User, fromCron: boolean|null };
     const questionKey = await this.telegramUtils.checkAvailableQuestions(user);
 
     if (questionKey !== false) {
@@ -41,10 +42,15 @@ export class AdditionalQuestionSceneCreator {
       return;
     }
 
-    await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_additional_question', {
-      'have_additional_questions' : false
-    });
-    await ctx.reply(messages.alreadyResponded);
+    if(!fromCron) {
+      await this.telegramUtils.sendToGoogleAnalytics(user.chat_id, 'send_additional_question', {
+        'have_additional_questions': false
+      });
+      await ctx.reply(messages.alreadyResponded);
+      console.log('not from cron')
+    } else {
+      console.log('from cron')
+    }
     await ctx.scene.leave();
   }
 
