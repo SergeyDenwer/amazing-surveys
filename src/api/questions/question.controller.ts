@@ -9,4 +9,9 @@ export class QuestionsController {
   getLatestQuestion(): object {
     return this.questionsService.getLatestQuestion()
   }
+
+  @Get('get-questions')
+  getQuestions(): object {
+    return this.questionsService.getQuestionsWithAnswers()
+  }
 }

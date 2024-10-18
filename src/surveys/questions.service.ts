@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Question } from './entities/question.entity';
+import { AnswerOptions } from '../constants/answer-options.enum';
+import { fromEnumToArrayOfObjects } from '../utils/enum-convertor';
 
 @Injectable()
 export class QuestionsService {
@@ -26,5 +28,15 @@ export class QuestionsService {
       take: 2
     });
     return questions.length > 1 ? questions[1] : undefined;
+  }
+
+  async getQuestionsWithAnswers(){
+    const lastQuestion = await this.getLatestQuestion();
+    return {
+      id: lastQuestion.id,
+      type: 'main-question',
+      question: lastQuestion.question,
+      answers: fromEnumToArrayOfObjects(AnswerOptions),
+    }
   }
 }
