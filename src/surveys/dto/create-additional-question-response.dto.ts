@@ -2,7 +2,7 @@ import { IsNotEmpty, IsEnum, IsString, IsOptional } from 'class-validator';
 import {AdditionalQuestions} from "../../constants/additional-questions.enum";
 
 export class CreateAdditionalQuestionResponseDto {
-  @IsNotEmpty()
+  // @IsNotEmpty()
   user_id: number;
 
   @IsEnum(AdditionalQuestions)

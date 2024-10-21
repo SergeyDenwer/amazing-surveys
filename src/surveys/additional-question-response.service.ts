@@ -49,4 +49,20 @@ export class AdditionalQuestionResponseService {
       },
     });
   }
+
+  async createResponseWithoutUser(createDto: CreateAdditionalQuestionResponseDto): Promise<AdditionalQuestionResponse> {
+    const response = await this.responseRepository.findOne({
+      where: { id: createDto.response_id }
+    });
+
+    if (!response) {
+      throw new Error('Response not found');
+    }
+
+    return this.additionalQuestionResponseRepository.save({
+      question: createDto.question,
+      answer: createDto.answer,
+      response: response,
+    });
+  }
 }
