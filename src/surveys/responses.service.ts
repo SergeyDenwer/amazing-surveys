@@ -114,4 +114,19 @@ export class ResponsesService {
       return { mainImagePath, avatarImagePath };
     }
   }
+
+  async createResponseWithoutUser(createResponseDto: CreateResponseDto): Promise<Response> {
+    const question = await this.questionRepository.findOne({ where: { id: createResponseDto.question_id } });
+
+    if (!question) {
+      throw new Error('Question not found');
+    }
+
+    const newResponse = this.responseRepository.create({
+      question: question,
+      choice: createResponseDto.choice,
+    });
+
+    return this.responseRepository.save(newResponse);
+  }
 }

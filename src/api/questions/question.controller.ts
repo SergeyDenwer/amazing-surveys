@@ -3,7 +3,9 @@ import { QuestionsService } from '../../surveys/questions.service';
 
 @Controller('api')
 export class QuestionsController {
-  constructor(private readonly questionsService: QuestionsService) {}
+  constructor(
+    private readonly questionsService: QuestionsService,
+  ) {}
 
   @Get('get-latest-question')
   getLatestQuestion(): object {

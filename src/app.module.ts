@@ -10,6 +10,7 @@ import { TelegramModule } from './telegram/telegram.module';
 import app from '../config/app';
 import { OrmConfig } from '../config/orm-config';
 import { QuestionsModuleApi } from './api/questions/questions.module';
+import { ResponsesModuleApi } from './api/responses/responses.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { QuestionsModuleApi } from './api/questions/questions.module';
     QuestionsModule,
     TelegramModule,
     QuestionsModuleApi,
+    ResponsesModuleApi,
   ],
   controllers: [AppController],
   providers: [AppService],
