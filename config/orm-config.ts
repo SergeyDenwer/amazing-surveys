@@ -15,6 +15,7 @@ export class OrmConfig implements TypeOrmOptionsFactory {
       username,
       password,
       database,
+      schema: 'bot',
       entities: ["dist/**/*.entity{.ts,.js}"],
       synchronize: synchronize,
       logging: false,
