@@ -32,7 +32,12 @@ export class UsersService {
   }
 
   async getOrCreateUserFromTelegram(ctx): Promise<User> {
-    let user = await this.findByTelegramID(ctx.from.id);
+    //let user = await this.findByTelegramID(ctx.from.id);
+    const queryBuilder = this.userRepository.createQueryBuilder('user')
+        .where('user.telegram_id = :telegram_id', { telegram_id: ctx.from.id });
+
+    console.log('SQL:', queryBuilder.getSql());
+    let user = await queryBuilder.getOne();
     if (!user) {
       try {
         const createUserDto: CreateUserDto = {

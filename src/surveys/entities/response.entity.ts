@@ -3,7 +3,7 @@ import {Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, Column, CreateDat
 import { User } from '../../users/entities/user.entity';
 import { Question } from './question.entity';
 
-@Entity()
+@Entity({ schema: 'bot' })
 export class Response {
   @PrimaryGeneratedColumn()
   id: number;

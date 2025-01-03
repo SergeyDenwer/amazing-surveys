@@ -1,6 +1,6 @@
 import {Entity, PrimaryGeneratedColumn, Column, CreateDateColumn} from 'typeorm';
 
-@Entity()
+@Entity({ schema: 'bot' })
 export class Question {
   @PrimaryGeneratedColumn()
   id: number;
