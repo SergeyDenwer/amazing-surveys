@@ -19,6 +19,7 @@ export class OrmConfig implements TypeOrmOptionsFactory {
       synchronize: synchronize,
       logging: false,
       ssl: ssl_required,
+      schema: 'bot',
       extra: ssl_required ? {
         ssl: {
           rejectUnauthorized: false
