@@ -31,7 +31,7 @@ export class QuestionsService {
   async getRecentSurveyedQuestions(): Promise<Question[]> {
     return this.questionRepository.find({
       order: { created_at: 'DESC' },
-      take: 20,
+      take: 40,
     });
   }
 
