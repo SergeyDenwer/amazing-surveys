@@ -27,4 +27,12 @@ export class QuestionsService {
     });
     return questions.length > 1 ? questions[1] : undefined;
   }
+
+  async getRecentSurveyedQuestions(): Promise<Question[]> {
+    return this.questionRepository.find({
+      order: { created_at: 'DESC' },
+      take: 20,
+    });
+  }
+
 }
