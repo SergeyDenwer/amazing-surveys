@@ -72,6 +72,31 @@ export class ResponsesService {
 
     const responses = await this.responseRepository.find({ where: { question: { id: questionId } } });
 
+    const { options, percentage, totalResponses } = this.calculateResponseStatistics(responses);
+
+    const generator = new GenerateImage(moment(question.created_at).format('DD.MM.YYYY'), question.question, percentage, options, totalResponses, selectedOption);
+    await generator.generateMainImage();
+    await generator.generateAvatar();
+
+    if (fromTelegram) {
+      const year = moment(question.created_at).year();
+      const week = moment(question.created_at).week();
+      const mainImageName = (selectedOption ? selectedOption : 'NoOption') + '.png';
+      const mainImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, mainImageName);
+      const avatarImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'avatar.png');
+
+      return { mainImagePath, avatarImagePath };
+    }
+  }
+
+  async getResponseStatistics(questionId: number): Promise<Option[]> {
+    const responses = await this.responseRepository.find({ where: { question: { id: questionId } } });
+    const { options } = this.calculateResponseStatistics(responses);
+
+    return options;
+  }
+
+  private calculateResponseStatistics(responses: Response[]): { options: Option[], percentage: number, totalResponses: number } {
     const optionsCount = {
       Option1: 0,
       Option2: 0,
@@ -88,8 +113,9 @@ export class ResponsesService {
 
     const totalResponses = responses.length;
     const percentage = totalResponses === 0 ? 0 : (
-      Math.round(
-      (optionsCount.Option1 * 0 + optionsCount.Option2 * 25 + optionsCount.Option3 * 50 + optionsCount.Option4 * 75 + optionsCount.Option5 * 100) / totalResponses) * 10
+        Math.round(
+            (optionsCount.Option1 * 0 + optionsCount.Option2 * 25 + optionsCount.Option3 * 50 + optionsCount.Option4 * 75 + optionsCount.Option5 * 100) / totalResponses
+        ) * 10
     ) / 10;
 
     const options: Option[] = [
@@ -100,18 +126,8 @@ export class ResponsesService {
       { key: 'Option5', text: AnswerOptions.Option5, percentage: Math.floor((optionsCount.Option5 / totalResponses) * 100) }
     ];
 
-    const generator = new GenerateImage(moment(question.created_at).format('DD.MM.YYYY'), question.question, percentage, options, totalResponses, selectedOption);
-    await generator.generateMainImage();
-    await generator.generateAvatar();
-
-    if (fromTelegram) {
-      const year = moment(question.created_at).year();
-      const week = moment(question.created_at).week();
-      const mainImageName = (selectedOption ? selectedOption : 'NoOption') + '.png';
-      const mainImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, mainImageName);
-      const avatarImagePath = path.join(__dirname, '..', '..', '..', 'images', 'results', year.toString(), `${week}`, 'avatar.png');
-
-      return { mainImagePath, avatarImagePath };
-    }
+    return { options, percentage, totalResponses };
   }
+
+
 }
